@@ -40,21 +40,27 @@ struct HelperConfig: Codable {
 
 /// Loads `config.json` from a few well-known locations, falling back to the
 /// bundled default (`Resources/config.default.json`) so the app works out of
-/// the box with no manual setup.
+/// the box with no manual setup. Writes user preferences (like the selected
+/// character) back to `~/.desktophelper/config.json` so the bundled default
+/// is never mutated.
 class ConfigManager {
     static let shared = ConfigManager()
 
     private(set) var config: HelperConfig
 
+    /// Writable overrides location. Changes made through the menu bar land here.
+    private let userOverridePath: String
+
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
+        userOverridePath = "\(home)/.desktophelper/config.json"
 
         let candidatePaths: [String] = [
-            // User-editable location (cwd)
+            // User overrides (highest priority — written by the app)
+            userOverridePath,
+            // Project-local config (cwd, great for `swift run`)
             "\(FileManager.default.currentDirectoryPath)/config.json",
-            // User install location
-            "\(home)/.desktophelper/config.json",
-            // Bundled default
+            // Bundled default (always available)
             Bundle.module.url(forResource: "config.default", withExtension: "json")?.path ?? "",
         ].filter { !$0.isEmpty }
 
@@ -79,6 +85,34 @@ class ConfigManager {
             healthReminder: nil,
             reminderTiming: nil
         )
+    }
+
+    /// Update the selected character and persist it to the user override file.
+    func setCharacterName(_ name: String) {
+        config = HelperConfig(
+            distractionThresholdSeconds: config.distractionThresholdSeconds,
+            characterSize: config.characterSize,
+            characterName: name,
+            speechEnabled: config.speechEnabled,
+            sites: config.sites,
+            apps: config.apps,
+            browserGenericMessage: config.browserGenericMessage,
+            defaultMessage: config.defaultMessage,
+            healthReminder: config.healthReminder,
+            reminderTiming: config.reminderTiming
+        )
+        persistOverride()
+    }
+
+    private func persistOverride() {
+        let dir = (userOverridePath as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if let data = try? encoder.encode(config) {
+            try? data.write(to: URL(fileURLWithPath: userOverridePath))
+        }
     }
 
     /// Find a matching site config from a browser tab title.

@@ -21,6 +21,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let sessionsHeaderTag = 201
     private let healthToggleTag = 202
 
+    /// Characters bundled with the app. Must match folder names under
+    /// `Sources/DesktopHelper/Resources/Main Characters/`.
+    static let availableCharacters = ["Ninja Frog", "Mask Dude", "Pink Man", "Virtual Guy"]
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Auto-install Claude Code hooks on first run
         let installer = HookInstaller()
@@ -73,6 +77,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         healthToggle.state = .on
         menu.addItem(healthToggle)
 
+        // Character submenu
+        let characterItem = NSMenuItem(title: "Character", action: nil, keyEquivalent: "")
+        let characterSubmenu = NSMenu()
+        let currentCharacter = ConfigManager.shared.config.characterName ?? "Ninja Frog"
+        for name in Self.availableCharacters {
+            let item = NSMenuItem(
+                title: name,
+                action: #selector(selectCharacter(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = name
+            item.state = (name == currentCharacter) ? .on : .off
+            characterSubmenu.addItem(item)
+        }
+        characterItem.submenu = characterSubmenu
+        menu.addItem(characterItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let demoItem = NSMenuItem(
@@ -87,6 +109,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem.menu = menu
+    }
+
+    @objc private func selectCharacter(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+
+        // Persist selection to user override config
+        ConfigManager.shared.setCharacterName(name)
+
+        // Hot-swap sprites on the live CharacterView
+        characterView()?.reloadCharacter(named: name)
+
+        // Update menu checkmarks
+        if let submenu = sender.menu {
+            for item in submenu.items {
+                item.state = (item.representedObject as? String == name) ? .on : .off
+            }
+        }
     }
 
     @objc private func runDemo() {

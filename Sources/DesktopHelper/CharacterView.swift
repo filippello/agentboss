@@ -25,14 +25,27 @@ class CharacterView: NSView {
         wantsLayer = true
 
         let character = ConfigManager.shared.config.characterName ?? "Ninja Frog"
-        if let baseDir = Self.resolveResourceDir() {
-            let charDir = "\(baseDir)/\(character)"
-            if let anim = SpriteAnimator(characterDir: charDir, sharedDir: baseDir) {
-                self.animator = anim
-            }
-        }
-
+        loadCharacter(named: character)
         playAnimation(.idle)
+    }
+
+    /// Swap the sprite sheet to a different character at runtime.
+    /// Safe to call while the view is on screen — the current animation is
+    /// interrupted and .idle is played with the new sprites.
+    func reloadCharacter(named name: String) {
+        loadCharacter(named: name)
+        currentType = nil
+        currentAnimation = nil
+        currentFrame = 0
+        playAnimation(.idle)
+    }
+
+    private func loadCharacter(named name: String) {
+        guard let baseDir = Self.resolveResourceDir() else { return }
+        let charDir = "\(baseDir)/\(name)"
+        if let anim = SpriteAnimator(characterDir: charDir, sharedDir: baseDir) {
+            self.animator = anim
+        }
     }
 
     /// Locate the bundled "Main Characters" directory. Works both when running via
