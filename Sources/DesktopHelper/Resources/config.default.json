@@ -1,0 +1,109 @@
+{
+  "distractionThresholdSeconds": 60,
+  "characterSize": 96,
+  "characterName": "Ninja Frog",
+  "speechEnabled": true,
+  "sites": {
+    "youtube": {
+      "keywords": ["youtube"],
+      "message": "Your task is done! Stop watching YouTube and come check it out!",
+      "thresholdSeconds": 45
+    },
+    "twitter": {
+      "keywords": ["twitter", "/ x", "x.com"],
+      "message": "Task finished! Get off X, you've got code to review!",
+      "thresholdSeconds": 45
+    },
+    "reddit": {
+      "keywords": ["reddit"],
+      "message": "Your task is ready! Reddit can wait, your code can't!",
+      "thresholdSeconds": 45
+    },
+    "facebook": {
+      "keywords": ["facebook"],
+      "message": "Hey! Your task finished! Facebook isn't going anywhere, come back!",
+      "thresholdSeconds": 45
+    },
+    "instagram": {
+      "keywords": ["instagram"],
+      "message": "Task complete! Stop scrolling Instagram and check your code!",
+      "thresholdSeconds": 45
+    },
+    "tiktok": {
+      "keywords": ["tiktok"],
+      "message": "Your code is done! TikTok can wait!",
+      "thresholdSeconds": 30
+    },
+    "twitch": {
+      "keywords": ["twitch"],
+      "message": "Task finished! Pause the stream and check your code!",
+      "thresholdSeconds": 60
+    },
+    "netflix": {
+      "keywords": ["netflix"],
+      "message": "Your task is done! Pause the show and come review it!",
+      "thresholdSeconds": 120
+    },
+    "hackernews": {
+      "keywords": ["hacker news"],
+      "message": "Task done! HN will still be there, go check your code!",
+      "thresholdSeconds": 90
+    },
+    "linkedin": {
+      "keywords": ["linkedin"],
+      "message": "Your task finished! LinkedIn can wait!",
+      "thresholdSeconds": 60
+    }
+  },
+  "apps": {
+    "slack": {
+      "bundleIds": ["com.tinyspeck.slackmacgap"],
+      "message": "Task complete! Finish your chat and come check the code!",
+      "thresholdSeconds": 120
+    },
+    "discord": {
+      "bundleIds": ["com.hnc.Discord"],
+      "message": "Your task is done! Discord can wait!",
+      "thresholdSeconds": 90
+    },
+    "telegram": {
+      "bundleIds": ["ru.keepcoder.Telegram"],
+      "message": "Task finished! Check your code when you're done chatting!",
+      "thresholdSeconds": 90
+    },
+    "whatsapp": {
+      "bundleIds": ["net.whatsapp.WhatsApp"],
+      "message": "Your code is ready! Come back when you can!",
+      "thresholdSeconds": 120
+    },
+    "spotify": {
+      "bundleIds": ["com.spotify.client"],
+      "message": "Task done! Good tunes, but your code needs you!",
+      "thresholdSeconds": 180
+    }
+  },
+  "browserGenericMessage": "Your task finished and you haven't come back yet! Come check it out!",
+  "defaultMessage": "Hey! Your task is done! Come take a look!",
+  "reminderTiming": {
+    "firstDelayMinutes": 5,
+    "secondDelayMinutes": 30,
+    "awaitingInputDelayMinutes": 2
+  },
+  "healthReminder": {
+    "enabled": true,
+    "intervalMinutes": 120,
+    "onlyWhenWorking": true,
+    "messages": [
+      "One hour in! Stand up, stretch, drink water. Your back will thank you.",
+      "60 minutes of coding. Look 20 feet away for 20 seconds. Protect those eyes!",
+      "Hey human, you're still carbon-based. Grab some water, stretch, come back.",
+      "Hour's up! Roll your shoulders, unclench your jaw, take a breath.",
+      "Quick PSA from your spine: please stand up for 2 minutes.",
+      "Hydration check! When did you last drink water? Go get some.",
+      "Your wrists called. They want a break. Shake 'em out!",
+      "60 min flown by! Look at something far away, then come back.",
+      "Posture check! Sit up straight, push shoulders back, unclench your jaw.",
+      "Take 5. Stretch, breathe, blink. The code will be here when you're back."
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+*.swp
+
+# Swift Package Manager build artifacts
+.build/
+.swiftpm/
+Packages/
+*.xcodeproj
+*.xcworkspace
+.netrc
+Package.resolved
+
+# SPM stray artifacts (should never land in repo root, but just in case)
+*.d
+*.o
+*.swiftdeps
+*.swiftdeps~
+
+# VS Code / IDE
+.vscode/
+.idea/
+*.iml
+
+# Local-only config overrides (keep config.default.json under Resources/ committed)
+# Users can drop a ~/.desktophelper/config.json for personal overrides.
+config.local.json
