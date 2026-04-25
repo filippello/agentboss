@@ -1,5 +1,17 @@
 import AppKit
 
+/// Legacy snooze option for the action-button window. The Skill API uses
+/// generic `BubbleButton`s; this enum is kept as the wire format that
+/// `ActionBubblesWindow` reports clicks with. AppDelegate translates each
+/// option to the running action's matching `BubbleButton.id` ("dismiss",
+/// "10min", "1hour", "tomorrow") before forwarding to the registry.
+enum SnoozeOption {
+    case dismiss
+    case tenMinutes
+    case oneHour
+    case tomorrow
+}
+
 struct ActionButton {
     let icon: String
     let label: String

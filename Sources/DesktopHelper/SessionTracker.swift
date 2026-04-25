@@ -29,7 +29,11 @@ protocol SessionTrackerDelegate: AnyObject {
 
 /// Watches `~/.claude/sessions/` for active Claude Code processes.
 /// Each session file is named after its PID, so we verify liveness with `kill(pid, 0)`.
-class SessionTracker {
+class SessionTracker: SessionSource {
+    /// `SessionSource` conformance — consumed by `SkillRegistry` to feed
+    /// `SkillContext.sessions` to every Skill.
+    var activeSessions: [SessionInfo] { sessions }
+
     weak var delegate: SessionTrackerDelegate?
     private(set) var sessions: [SessionInfo] = []
     private var pollTimer: Timer?
