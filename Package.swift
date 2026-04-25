@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "DesktopHelper",
+    name: "FocusPal",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "DesktopHelper",
-            path: "Sources/DesktopHelper",
+            name: "FocusPal",
+            path: "Sources/FocusPal",
             resources: [
                 .copy("Resources/Main Characters"),
                 .copy("Resources/config.default.json"),

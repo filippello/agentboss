@@ -43,7 +43,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var skillMenuActions: [UUID: () -> Void] = [:]
 
     /// Characters bundled with the app. Must match folder names under
-    /// `Sources/DesktopHelper/Resources/Main Characters/`.
+    /// `Sources/FocusPal/Resources/Main Characters/`.
     static let availableCharacters = ["Ninja Frog", "Mask Dude", "Pink Man", "Virtual Guy"]
 
     func applicationDidFinishLaunching(_ notification: Notification) {

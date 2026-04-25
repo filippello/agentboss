@@ -1,4 +1,4 @@
-# DesktopHelper
+# FocusPal
 
 A playful desktop companion for **Claude Code** on macOS. A pixel‑art character (Ninja Frog by default) lives in your menu bar and occasionally hops onto the screen to let you know when your Claude Code sessions finish, need your input, or when it's time to take a break.
 
@@ -10,7 +10,7 @@ A playful desktop companion for **Claude Code** on macOS. A pixel‑art characte
 
 ## Why
 
-If you run multiple Claude Code sessions in parallel, it's easy to wander off into Twitter/YouTube/Slack while agents finish their work in the background. DesktopHelper watches every active Claude Code session and a tiny character gently nags you back — funny, non‑disruptive, and context‑aware.
+If you run multiple Claude Code sessions in parallel, it's easy to wander off into Twitter/YouTube/Slack while agents finish their work in the background. FocusPal watches every active Claude Code session and a tiny character gently nags you back — funny, non‑disruptive, and context‑aware.
 
 ## Features
 
@@ -26,10 +26,10 @@ If you run multiple Claude Code sessions in parallel, it's easy to wander off in
 
 | Character | Sprite |
 |---|---|
-| Ninja Frog (default) | ![](Sources/DesktopHelper/Resources/Main%20Characters/Ninja%20Frog/Idle%20%2832x32%29.png) |
-| Mask Dude | ![](Sources/DesktopHelper/Resources/Main%20Characters/Mask%20Dude/Idle%20%2832x32%29.png) |
-| Pink Man | ![](Sources/DesktopHelper/Resources/Main%20Characters/Pink%20Man/Idle%20%2832x32%29.png) |
-| Virtual Guy | ![](Sources/DesktopHelper/Resources/Main%20Characters/Virtual%20Guy/Idle%20%2832x32%29.png) |
+| Ninja Frog (default) | ![](Sources/FocusPal/Resources/Main%20Characters/Ninja%20Frog/Idle%20%2832x32%29.png) |
+| Mask Dude | ![](Sources/FocusPal/Resources/Main%20Characters/Mask%20Dude/Idle%20%2832x32%29.png) |
+| Pink Man | ![](Sources/FocusPal/Resources/Main%20Characters/Pink%20Man/Idle%20%2832x32%29.png) |
+| Virtual Guy | ![](Sources/FocusPal/Resources/Main%20Characters/Virtual%20Guy/Idle%20%2832x32%29.png) |
 
 _Sprites from the excellent [Pixel Adventure 1](https://pixelfrog-assets.itch.io/pixel-adventure-1) pack by Pixel Frog (free for commercial use)._
 
@@ -68,7 +68,7 @@ _Sprites from the excellent [Pixel Adventure 1](https://pixelfrog-assets.itch.io
 |---|---|
 | `main.swift` / `AppDelegate.swift` | NSApplication bootstrap, wiring, menu bar. |
 | `SessionTracker.swift` | Polls `~/.claude/sessions/*.json`, verifies each PID with `kill(pid, 0)`. |
-| `ClaudeCodeMonitor.swift` | Tails `~/.claude/desktophelper/events.jsonl` for Stop / Notification / UserPromptSubmit hooks. |
+| `ClaudeCodeMonitor.swift` | Tails `~/.claude/focuspal/events.jsonl` for Stop / Notification / UserPromptSubmit hooks. |
 | `HookInstaller.swift` | On first launch, adds the required hook lines to `~/.claude/settings.json` (non‑destructive — preserves existing hooks). |
 | `ReminderManager.swift` | Per‑session reminder queue, snooze logic, upgrade from `taskComplete` → `awaitingInput`. |
 | `HealthReminder.swift` | Hourly break nudge, skipped when the user is idle / AFK. |
@@ -91,8 +91,8 @@ swift --version   # expect: 5.9+
 ## Getting started
 
 ```bash
-git clone https://github.com/<you>/desktophelper.git
-cd desktophelper
+git clone https://github.com/<you>/focuspal.git
+cd focuspal
 swift run
 ```
 
@@ -102,7 +102,7 @@ On first launch the app will:
 2. Install the required Claude Code hooks in `~/.claude/settings.json` (preserving any existing hooks you have).
 3. Start watching every active Claude Code session.
 
-> **Restart any already‑open Claude Code sessions** so they pick up the newly installed hooks. Sessions started _after_ DesktopHelper is running already have them.
+> **Restart any already‑open Claude Code sessions** so they pick up the newly installed hooks. Sessions started _after_ FocusPal is running already have them.
 
 ### Try the demo
 
@@ -114,7 +114,7 @@ Click the 🐸 menu bar icon → **🎬 Run Demo (solana integration)**. After 5
 
 Click the 🐸 icon to see:
 
-- The list of every active Claude Code session with its repo name and age (`⚡ desktophelper — 3m ago`).
+- The list of every active Claude Code session with its repo name and age (`⚡ focuspal — 3m ago`).
 - **Health Reminders** toggle (on by default).
 - **🎬 Run Demo** (⌘D) — triggers a sample reminder immediately.
 - **Quit**.
@@ -179,19 +179,19 @@ All behaviour lives in `config.json` in the project root. No rebuild needed — 
 
 ### Personal overrides
 
-Drop a file at `~/.desktophelper/config.json` — it takes precedence over the repo's `config.json`. Handy for keeping your personal tweaks out of the repo.
+Drop a file at `~/.focuspal/config.json` — it takes precedence over the repo's `config.json`. Handy for keeping your personal tweaks out of the repo.
 
 ## How the Claude Code integration works
 
-DesktopHelper installs three hooks in `~/.claude/settings.json`:
+FocusPal installs three hooks in `~/.claude/settings.json`:
 
-| Hook | When it fires | What DesktopHelper does |
+| Hook | When it fires | What FocusPal does |
 |---|---|---|
 | `Stop` | Claude finishes its response | Queues a reminder (5 min default). |
 | `Notification` | Claude is paused waiting for your approval | Queues a shorter reminder (2 min) — it's blocking you. |
 | `UserPromptSubmit` | You submit a new prompt | Cancels any pending reminder for that session. |
 
-Each hook appends a JSON line to `~/.claude/desktophelper/events.jsonl`:
+Each hook appends a JSON line to `~/.claude/focuspal/events.jsonl`:
 
 ```json
 {"event":"Stop","session":"<id>","cwd":"/path/to/repo","summary":"Task completed"}
@@ -201,14 +201,14 @@ If you already had hooks configured (e.g. Peon sounds from Warcraft — the auth
 
 ### Live session discovery
 
-Independently of hooks, DesktopHelper polls `~/.claude/sessions/*.json` every 2 seconds. Each file is named after a PID, so liveness is verified with `kill(pid, 0)`. This is how the menu bar stays up to date with active sessions, even before any hook fires.
+Independently of hooks, FocusPal polls `~/.claude/sessions/*.json` every 2 seconds. Each file is named after a PID, so liveness is verified with `kill(pid, 0)`. This is how the menu bar stays up to date with active sessions, even before any hook fires.
 
 ## Privacy
 
 - **No network I/O.** Everything stays on your machine.
 - **No telemetry.** The app never phones home.
 - **No Accessibility permissions required.** Window tracking uses `CGWindowListCopyWindowInfo`, which doesn't need Accessibility.
-- **Reads only from your home directory** (`~/.claude/` and `~/.desktophelper/`). Writes only to `~/.claude/desktophelper/events.jsonl` and (once, to install hooks) `~/.claude/settings.json`.
+- **Reads only from your home directory** (`~/.claude/` and `~/.focuspal/`). Writes only to `~/.claude/focuspal/events.jsonl` and (once, to install hooks) `~/.claude/settings.json`.
 
 ## Known limitations
 

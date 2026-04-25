@@ -61,6 +61,21 @@ enum MessagePool {
         ),
     ]
 
+    /// Motivational kick-off shown when the user starts a Pomodoro focus block.
+    /// One-liners — the frog pops, says one of these, and disappears.
+    static let pomodoroStart: [String] = [
+        "25 minutes of pure focus. You got this!",
+        "Phones face-down, headphones on. Let's go!",
+        "Future-you will thank present-you for this hour. Lock in!",
+        "No tabs. No Slack. Just you and the code. Go!",
+        "25 minutes. One problem. Crush it.",
+        "Deep work mode: ON. I'll handle the noise — you handle the code.",
+        "The next 25 minutes belong to you. Make 'em count.",
+        "Real engineers ship in flow. Get into it!",
+        "Don't break the chain. 25 min, all-in. Begin!",
+        "Focus is a superpower. Use it for the next 25 min.",
+    ]
+
     /// Reminders fired when Claude Code is *blocked* waiting for user input.
     /// More urgent in tone than `taskComplete`.
     static let awaitingInput: [(first: String, repeat_: String)] = [

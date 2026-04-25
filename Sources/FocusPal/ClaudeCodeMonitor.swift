@@ -26,7 +26,7 @@ class ClaudeCodeMonitor {
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        eventsDir = "\(home)/.claude/desktophelper"
+        eventsDir = "\(home)/.claude/focuspal"
         eventsFile = "\(eventsDir)/events.jsonl"
         setup()
     }

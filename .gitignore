@@ -23,5 +23,5 @@ Package.resolved
 *.iml
 
 # Local-only config overrides (keep config.default.json under Resources/ committed)
-# Users can drop a ~/.desktophelper/config.json for personal overrides.
+# Users can drop a ~/.focuspal/config.json for personal overrides.
 config.local.json

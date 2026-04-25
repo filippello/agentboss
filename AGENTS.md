@@ -4,7 +4,7 @@
 > read this end to end before changing anything. The whole point of FocusPal
 > is to be **easy to extend**, and that depends on you following the
 > patterns this doc describes. The complete worked example lives in
-> [`Sources/DesktopHelper/Skills/PomodoroSkill.swift`](Sources/DesktopHelper/Skills/PomodoroSkill.swift).
+> [`Sources/FocusPal/Skills/PomodoroSkill.swift`](Sources/FocusPal/Skills/PomodoroSkill.swift).
 
 ## What this app is
 
@@ -15,7 +15,7 @@ Manager binary — no Xcode required.
 
 The interesting part for an AI: **every behavior is a `Skill`**. Reminders,
 health breaks, the Pomodoro timer — all live as small, isolated files in
-[`Sources/DesktopHelper/Skills/`](Sources/DesktopHelper/Skills/). Adding a
+[`Sources/FocusPal/Skills/`](Sources/FocusPal/Skills/). Adding a
 new feature means dropping a new `Skill` file and registering it. Nothing
 else needs to change.
 
@@ -25,27 +25,27 @@ else needs to change.
 |---|---|
 | `Package.swift` | Swift Package Manager manifest. Declares the executable target and bundled resources (sprites + default config). |
 | `config.json` | User-editable runtime config: timings, character, messages per site/app, health-break interval. Loaded by `ConfigManager`. |
-| `Sources/DesktopHelper/main.swift` | Entry point: `NSApplication.shared.setActivationPolicy(.accessory)` + `AppDelegate`. |
-| `Sources/DesktopHelper/AppDelegate.swift` | App-level wiring **only**. Owns the character window, state machine, monitors, and the `SkillRegistry`. Implements `FrogActionExecutor` + `SkillMenuController` so Skills can drive the frog without touching AppKit. **Don't put feature logic here** — it goes in a Skill. |
-| `Sources/DesktopHelper/Skills/Skill.swift` | The protocol + `AgentEvent` + `FrogAction` + `BubbleButton` + supporting enums. |
-| `Sources/DesktopHelper/Skills/SkillContext.swift` | The only surface a Skill touches. Use `enqueue`, `emit`, `addMenuItem`, `sessions`, `config`, `storage`. |
-| `Sources/DesktopHelper/Skills/SkillRegistry.swift` | Dispatches events to every Skill, runs one frog action at a time via a priority/coalescing queue, owns the fast (1s) / slow (30s) ticks. |
-| `Sources/DesktopHelper/Skills/MessagePool.swift` | Rotating message catalogues for ReminderSkill. Templates use `{project}`, `{app}`, `{count}`. |
-| `Sources/DesktopHelper/Skills/WorkActivityProbe.swift` | Detects whether the user is "actively working" (Claude session alive *or* a terminal/editor focused recently). Shared by HealthBreakSkill and ReminderSkill. |
-| `Sources/DesktopHelper/Skills/ReminderSkill.swift` | Per-session reminder queue. Reacts to `taskCompleted` / `awaitingInput` / `userPrompted` / `sessionStarted`. Spawns a `walkAndTalk` action with snooze buttons. |
-| `Sources/DesktopHelper/Skills/HealthBreakSkill.swift` | Periodic `popAndSay` health nudges. Suppressed during AFK or focus mode. |
-| `Sources/DesktopHelper/Skills/PomodoroSkill.swift` | Worked example — see "How to add a Skill" below. |
-| `Sources/DesktopHelper/CharacterStateMachine.swift` | The frog's state machine: `idle / alert / walking / talking / popAndSay / hiding / sleeping`. |
-| `Sources/DesktopHelper/CharacterView.swift` + `CharacterWindow.swift` | The transparent floating window that draws the frog. |
-| `Sources/DesktopHelper/SpriteAnimator.swift` | Loads PNG sprite sheets from the bundle and produces frame-by-frame `NSImage`s. |
-| `Sources/DesktopHelper/SpeechBubbleWindow.swift` + `SpeechController.swift` | Floating speech bubble above the frog. |
-| `Sources/DesktopHelper/ActionBubblesWindow.swift` | The 4 snooze buttons that flank the frog when it's talking. |
-| `Sources/DesktopHelper/ScreenEdgeNavigator.swift` | Walks the frog window across the screen toward a target X. |
-| `Sources/DesktopHelper/WindowTracker.swift` | Finds the focused window's bounds (no Accessibility permissions) so the frog can perch near it. |
-| `Sources/DesktopHelper/SessionTracker.swift` | Polls `~/.claude/sessions/*.json` every 2s, verifies each PID with `kill(pid, 0)`. |
-| `Sources/DesktopHelper/ClaudeCodeMonitor.swift` | Tails `~/.claude/desktophelper/events.jsonl` for hook-emitted events. |
-| `Sources/DesktopHelper/HookInstaller.swift` | On first launch, idempotently adds the required `Stop` / `Notification` / `UserPromptSubmit` hooks to `~/.claude/settings.json`. |
-| `Sources/DesktopHelper/ConfigManager.swift` | Loads `config.json` from a few well-known paths, persists user overrides to `~/.desktophelper/config.json`. |
+| `Sources/FocusPal/main.swift` | Entry point: `NSApplication.shared.setActivationPolicy(.accessory)` + `AppDelegate`. |
+| `Sources/FocusPal/AppDelegate.swift` | App-level wiring **only**. Owns the character window, state machine, monitors, and the `SkillRegistry`. Implements `FrogActionExecutor` + `SkillMenuController` so Skills can drive the frog without touching AppKit. **Don't put feature logic here** — it goes in a Skill. |
+| `Sources/FocusPal/Skills/Skill.swift` | The protocol + `AgentEvent` + `FrogAction` + `BubbleButton` + supporting enums. |
+| `Sources/FocusPal/Skills/SkillContext.swift` | The only surface a Skill touches. Use `enqueue`, `emit`, `addMenuItem`, `sessions`, `config`, `storage`. |
+| `Sources/FocusPal/Skills/SkillRegistry.swift` | Dispatches events to every Skill, runs one frog action at a time via a priority/coalescing queue, owns the fast (1s) / slow (30s) ticks. |
+| `Sources/FocusPal/Skills/MessagePool.swift` | Rotating message catalogues for ReminderSkill. Templates use `{project}`, `{app}`, `{count}`. |
+| `Sources/FocusPal/Skills/WorkActivityProbe.swift` | Detects whether the user is "actively working" (Claude session alive *or* a terminal/editor focused recently). Shared by HealthBreakSkill and ReminderSkill. |
+| `Sources/FocusPal/Skills/ReminderSkill.swift` | Per-session reminder queue. Reacts to `taskCompleted` / `awaitingInput` / `userPrompted` / `sessionStarted`. Spawns a `walkAndTalk` action with snooze buttons. |
+| `Sources/FocusPal/Skills/HealthBreakSkill.swift` | Periodic `popAndSay` health nudges. Suppressed during AFK or focus mode. |
+| `Sources/FocusPal/Skills/PomodoroSkill.swift` | Worked example — see "How to add a Skill" below. |
+| `Sources/FocusPal/CharacterStateMachine.swift` | The frog's state machine: `idle / alert / walking / talking / popAndSay / hiding / sleeping`. |
+| `Sources/FocusPal/CharacterView.swift` + `CharacterWindow.swift` | The transparent floating window that draws the frog. |
+| `Sources/FocusPal/SpriteAnimator.swift` | Loads PNG sprite sheets from the bundle and produces frame-by-frame `NSImage`s. |
+| `Sources/FocusPal/SpeechBubbleWindow.swift` + `SpeechController.swift` | Floating speech bubble above the frog. |
+| `Sources/FocusPal/ActionBubblesWindow.swift` | The 4 snooze buttons that flank the frog when it's talking. |
+| `Sources/FocusPal/ScreenEdgeNavigator.swift` | Walks the frog window across the screen toward a target X. |
+| `Sources/FocusPal/WindowTracker.swift` | Finds the focused window's bounds (no Accessibility permissions) so the frog can perch near it. |
+| `Sources/FocusPal/SessionTracker.swift` | Polls `~/.claude/sessions/*.json` every 2s, verifies each PID with `kill(pid, 0)`. |
+| `Sources/FocusPal/ClaudeCodeMonitor.swift` | Tails `~/.claude/focuspal/events.jsonl` for hook-emitted events. |
+| `Sources/FocusPal/HookInstaller.swift` | On first launch, idempotently adds the required `Stop` / `Notification` / `UserPromptSubmit` hooks to `~/.claude/settings.json`. |
+| `Sources/FocusPal/ConfigManager.swift` | Loads `config.json` from a few well-known paths, persists user overrides to `~/.focuspal/config.json`. |
 
 ## Glossary
 
@@ -103,7 +103,7 @@ This is the canonical workflow. The full worked example is `PomodoroSkill.swift`
 
 ### 1. Create the file
 
-`Sources/DesktopHelper/Skills/MyCoolSkill.swift`:
+`Sources/FocusPal/Skills/MyCoolSkill.swift`:
 
 ```swift
 import AppKit
@@ -230,7 +230,7 @@ Both fire on `RunLoop.main` in `.common` mode, so they keep ticking even while t
 
 User scenario: Claude finishes a task, the user is on YouTube, after 5 minutes the frog walks out. Here's every hop in order:
 
-1. `~/.claude/desktophelper/events.jsonl` gets a new line: `{"event":"Stop", ...}` (written by the hook in `~/.claude/settings.json`).
+1. `~/.claude/focuspal/events.jsonl` gets a new line: `{"event":"Stop", ...}` (written by the hook in `~/.claude/settings.json`).
 2. `ClaudeCodeMonitor` polls the file (~0.5s), parses the line, calls `delegate.claudeCodeDidComplete(...)`.
 3. `AppDelegate.claudeCodeDidComplete(...)` translates it to `AgentEvent.taskCompleted(...)` and calls `registry.dispatch(event)`.
 4. Every Skill's `handle(_:)` runs. `ReminderSkill` records a new `PendingReminder` with `nextReminderAt = now + 5min`.

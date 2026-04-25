@@ -104,14 +104,17 @@ final class SkillContext {
 
 ## Phase B — Distribution
 
-### B1. Rename to FocusPal
-- [ ] `Package.swift` — `name: "FocusPal"`, target name + paths
-- [ ] All Swift sources — references to `DesktopHelper` / `AgentBoss` → `FocusPal`
-- [ ] `README.md`, `AGENTS.md` — name, badges, repo URLs
-- [ ] Local directory rename: `desktophelper` → `focuspal` (verify SPM still builds after rename)
-- [ ] GitHub repo rename: `agentboss` → `focuspal` (manual, in repo settings)
-- [ ] Update local git remote: `git remote set-url origin https://github.com/filippello/focuspal.git`
-- [ ] Verify: `swift build && swift run` works, `git push` works to new remote
+### B1. Rename to FocusPal  ✅ (mostly — see manual steps)
+- [x] `Package.swift` — `name: "FocusPal"`, `path: "Sources/FocusPal"`
+- [x] Source directory: `git mv Sources/DesktopHelper Sources/FocusPal`
+- [x] Comments + paths in `AppDelegate`, `ConfigManager`, `HookInstaller`, `ClaudeCodeMonitor`
+- [x] Runtime paths: `~/.claude/desktophelper/` → `~/.claude/focuspal/`, `~/.desktophelper/config.json` → `~/.focuspal/config.json`
+- [x] HookInstaller adds **legacy cleanup**: removes any old `desktophelper/events.jsonl` hooks before installing new ones
+- [x] `README.md`, `AGENTS.md`, `.gitignore` updated
+- [x] Verify: `swift build` clean, `swift run` produces a binary called `FocusPal`, hook migration tested (legacy desktophelper hooks removed, new focuspal hooks installed)
+- [ ] **MANUAL**: GitHub repo rename `agentboss` → `focuspal` (in repo Settings)
+- [ ] **MANUAL**: `git remote set-url origin https://github.com/filippello/focuspal.git`
+- [ ] **MANUAL**: rename local working directory `desktophelper` → `focuspal` (close any Claude Code sessions in this dir first, then `mv ~/Projects/tools/desktophelper ~/Projects/tools/focuspal`)
 
 ### B2. .app bundle script
 - [ ] Create `scripts/build-app.sh`:

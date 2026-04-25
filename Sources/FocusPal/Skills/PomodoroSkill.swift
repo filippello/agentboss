@@ -61,6 +61,14 @@ final class PomodoroSkill: Skill {
         endsAt = Date().addingTimeInterval(focusDurationSeconds)
         ctx.emit(.modeChanged(.focus))
         refreshMenuTitle(now: Date())
+
+        let message = MessagePool.pomodoroStart.randomElement() ?? "25 minutes — let's go!"
+        ctx.enqueue(FrogAction(
+            owner: name,
+            kind: .popAndSay(message: message, duration: 4.5),
+            priority: .normal,
+            coalesceKey: "pomodoro-start"
+        ))
     }
 
     /// User cancelled mid-block — no celebration, just resume normal mode.

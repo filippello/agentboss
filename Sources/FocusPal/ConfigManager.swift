@@ -41,7 +41,7 @@ struct HelperConfig: Codable {
 /// Loads `config.json` from a few well-known locations, falling back to the
 /// bundled default (`Resources/config.default.json`) so the app works out of
 /// the box with no manual setup. Writes user preferences (like the selected
-/// character) back to `~/.desktophelper/config.json` so the bundled default
+/// character) back to `~/.focuspal/config.json` so the bundled default
 /// is never mutated.
 class ConfigManager {
     static let shared = ConfigManager()
@@ -53,7 +53,7 @@ class ConfigManager {
 
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        userOverridePath = "\(home)/.desktophelper/config.json"
+        userOverridePath = "\(home)/.focuspal/config.json"
 
         let candidatePaths: [String] = [
             // User overrides (highest priority — written by the app)
