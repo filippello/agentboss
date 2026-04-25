@@ -63,13 +63,19 @@ final class SkillRegistry {
     }
 
     /// Start the periodic tick events. Call once after all Skills are registered.
+    /// Adds timers to `.common` run-loop mode so they keep firing while the
+    /// status bar menu is open (otherwise live countdown UIs would freeze).
     func startTicking() {
-        fastTickTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        let fast = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.dispatch(.tick(Date(), cadence: .fast))
         }
-        slowTickTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+        let slow = Timer(timeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.dispatch(.tick(Date(), cadence: .slow))
         }
+        RunLoop.main.add(fast, forMode: .common)
+        RunLoop.main.add(slow, forMode: .common)
+        fastTickTimer = fast
+        slowTickTimer = slow
     }
 
     // MARK: - Event dispatch

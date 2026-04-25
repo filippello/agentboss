@@ -81,25 +81,26 @@ final class SkillContext {
 - [x] Verify: `swift build` clean, `swift run` shows menu bar 🐸 with no behavior change (existing AppDelegate untouched, registry unused yet)
 - _Wiring to AppDelegate moves to A2._
 
-### A2. Refactor existing features into Skills
-- [ ] `HealthBreakSkill` (move from `HealthReminder.swift`)
-- [ ] `ReminderSkill` (move from `ReminderManager.swift` + the funny-message pool that lives in `AppDelegate`)
-- [ ] Slim down `AppDelegate` to wiring + character window + base menu bar
-- [ ] Verify: regression test — task complete reminder fires at 5 min (use demo button), health pop fires when interval hits, character switcher still works
+### A2. Refactor existing features into Skills  ✅
+- [x] `HealthBreakSkill` (replaces `HealthReminder.swift`, deleted)
+- [x] `ReminderSkill` (replaces `ReminderManager.swift`, deleted) — funny-message pool extracted to `MessagePool.swift`, `WorkActivityProbe.swift` shared between skills
+- [x] AppDelegate slimmed: now FrogActionExecutor + SkillMenuController + event-translation only. No more reminder timing, no more `currentSessionId` scalar, no more hardcoded message arrays.
+- [x] Regression: user confirmed Run Demo, sessions list, Health toggle, character switcher all work identically to pre-refactor.
 
-### A3. PomodoroSkill (demo)
-- [ ] Add menu bar item "Start 25-min Focus" via `context.addMenuItem`
-- [ ] During focus block: pause `ReminderSkill` and `HealthBreakSkill` (registry-level pause flag)
-- [ ] On block end: `popAndSay("Focus done!") + NSSound.beep()`
-- [ ] Verify: start block → trigger Stop event manually → no reminder fires → after 25 min (or short test interval) → frog pops + sound plays
+### A3. PomodoroSkill (demo)  ✅
+- [x] `Sources/DesktopHelper/Skills/PomodoroSkill.swift` — adds menu item "▶ Start 25-min Focus", on click emits `.modeChanged(.focus)` (silences Reminder + HealthBreak via their existing `suppressed` flag), tracks countdown via `.tick(.fast)`, on expiry emits `.modeChanged(.normal)` + `popAndSay` + `NSSound.beep()`. Mid-focus click cancels without celebration.
+- [x] `SkillRegistry.startTicking` updated to use `RunLoop.main.add(timer, forMode: .common)` so the live countdown ticks while the menu is open.
+- [x] Registered in `AppDelegate.setupSkills()` — zero changes to AppDelegate's existing wiring beyond the one register call.
+- [x] User-verified: frog pop + beep at end, suppression during focus.
 
-### A4. AGENTS.md (root)
-- [ ] Architecture map — what each file does (table format, scannable)
-- [ ] Glossary — `AgentEvent`, `CharacterState`, frog lifecycle
-- [ ] "How to add a Skill" walkthrough — copy-paste of `PomodoroSkill` with explanation
-- [ ] Convention notes — where messages live, where config is, naming
-- [ ] Symlink `CLAUDE.md → AGENTS.md`
-- [ ] Verify (qualitative): open a fresh Claude Code session in the repo, ask it to add a trivial new skill ("good morning skill that fires once on first event of the day"). It should succeed reading only `AGENTS.md` + `PomodoroSkill.swift`.
+### A4. AGENTS.md (root)  ✅
+- [x] Architecture map — every file in the repo with a one-line role
+- [x] Glossary — full `AgentEvent` table, `FrogAction` semantics (priority/coalesceKey), `CharacterState`, lifecycle of a frog action (14-step worked example)
+- [x] "How to add a Skill" walkthrough — full `MyCoolSkill` template + integration (one-line `register` call)
+- [x] Conventions — message pools, persistence via `context.storage`, menu items, priority/coalesceKey choice, fast vs slow tick
+- [x] "Things to avoid" anti-patterns
+- [x] Symlink `CLAUDE.md → AGENTS.md`
+- [ ] Qualitative verification (run after commit): open a fresh Claude Code in this repo, ask it to add a "good morning" skill. Track whether it succeeds reading only `AGENTS.md` + `PomodoroSkill.swift`. Append findings to `tasks/lessons.md`.
 
 ## Phase B — Distribution
 

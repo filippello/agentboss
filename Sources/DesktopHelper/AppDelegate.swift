@@ -118,6 +118,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         reminderSkill = ReminderSkill()
         registry.register(reminderSkill)
         registry.register(HealthBreakSkill())
+        registry.register(PomodoroSkill())
     }
 
     // MARK: - Menu Bar (base layout)
