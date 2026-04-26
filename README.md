@@ -97,7 +97,15 @@ swift --version   # expect: 5.9+
 3. **First launch:** the app is unsigned, so right-click `FocusPal.app` → **Open** (Apple won't let you open it by double-click the first time).
 4. Subsequent launches work normally.
 
-### Option B — build from source
+### Option B — Homebrew (once the tap is published)
+
+```bash
+brew install --cask filippello/tap/focuspal
+```
+
+(See `homebrew/README.md` in the repo for tap publishing instructions.)
+
+### Option C — build from source
 
 ```bash
 git clone https://github.com/<you>/focuspal.git
