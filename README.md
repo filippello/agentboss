@@ -90,10 +90,20 @@ swift --version   # expect: 5.9+
 
 ## Getting started
 
+### Option A — download the .app (Apple Silicon only, for now)
+
+1. Grab the latest `FocusPal-vX.Y.Z-arm64.zip` from [Releases](https://github.com/filippello/agentboss/releases).
+2. Unzip and drag `FocusPal.app` to `/Applications`.
+3. **First launch:** the app is unsigned, so right-click `FocusPal.app` → **Open** (Apple won't let you open it by double-click the first time).
+4. Subsequent launches work normally.
+
+### Option B — build from source
+
 ```bash
 git clone https://github.com/<you>/focuspal.git
 cd focuspal
-swift run
+swift run                  # for development
+scripts/build-app.sh       # to produce dist/FocusPal.app
 ```
 
 On first launch the app will:

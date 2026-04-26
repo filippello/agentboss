@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.2.0)"
+        required: true
+
+permissions:
+  contents: write   # needed to create the GitHub Release
+
+jobs:
+  build:
+    runs-on: macos-14   # arm64
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "value=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcrun --show-sdk-path
+          uname -m
+
+      - name: Build .app bundle
+        env:
+          FOCUSPAL_VERSION: ${{ steps.tag.outputs.value }}
+        run: |
+          chmod +x scripts/build-app.sh
+          scripts/build-app.sh
+
+      - name: Zip the app
+        id: zip
+        run: |
+          cd dist
+          zip -r -y "FocusPal-${{ steps.tag.outputs.value }}-arm64.zip" "FocusPal.app"
+          shasum -a 256 "FocusPal-${{ steps.tag.outputs.value }}-arm64.zip" | tee "FocusPal-${{ steps.tag.outputs.value }}-arm64.zip.sha256"
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: FocusPal ${{ steps.tag.outputs.value }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/FocusPal-${{ steps.tag.outputs.value }}-arm64.zip
+            dist/FocusPal-${{ steps.tag.outputs.value }}-arm64.zip.sha256
+          body: |
+            FocusPal ${{ steps.tag.outputs.value }} — Apple Silicon build.
+
+            ## Install
+
+            1. Download `FocusPal-${{ steps.tag.outputs.value }}-arm64.zip`
+            2. Unzip → drag `FocusPal.app` to `/Applications`
+            3. **First launch:** the app is unsigned, so right-click `FocusPal.app` → **Open** (and again to confirm). Subsequent launches work normally.
+
+            ## Verify download
+
+            Compare the SHA-256 in the `.sha256` file with:
+
+            ```bash
+            shasum -a 256 FocusPal-${{ steps.tag.outputs.value }}-arm64.zip
+            ```
