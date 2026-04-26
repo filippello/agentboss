@@ -14,6 +14,18 @@
 
 **How to apply:** at the start of any session in this repo, read `tasks/todo.md` and `tasks/lessons.md`. If a `tasks/` dir doesn't exist yet, create it before doing anything else.
 
+## 2026-04-26 — LSUIElement agents need explicit termination opt-out
+
+**Mistake:** Shipped v0.2.0 as a packaged `.app` with `LSUIElement=true` but no termination opt-outs. macOS silently auto-terminated the menu-bar agent within ~30s of idle, the user's frog "just disappeared". The system log showed `_kLSApplicationWouldBeTerminatedByTALKey=1` — AppKit's TAL (Automatic Termination) machinery decided FocusPal was inactive.
+
+**Rule for menu-bar / LSUIElement apps:** belt and suspenders both —
+1. Info.plist: `NSSupportsAutomaticTermination=false`, `NSSupportsSuddenTermination=false`.
+2. At startup: `ProcessInfo.processInfo.disableAutomaticTermination(...)` + `disableSuddenTermination()`.
+
+The plist alone isn't enough when running unbundled (`swift run`); the programmatic call alone isn't enough on cold-launch from `/Applications`. Apply both.
+
+**How to apply:** any time you set an app's activation policy to `.accessory` or set `LSUIElement` true, add the four termination opt-outs in the same change. There's no scenario where a menu-bar agent wants to be auto-terminated.
+
 ## 2026-04-26 — Don't trust enum-based event upgrades without timing windows
 
 **Mistake:** ReminderSkill upgraded `.taskComplete` → `.awaitingInput` whenever a Notification event arrived for a session that already had a reminder, on the assumption that Notification meant "Claude is blocked". The user reported every reminder showing the "waiting for input" message instead of the friendly "task done" one. Inspection of `events.jsonl` revealed Claude Code emits Stop+Notification *as a pair* every time it finishes — the Notification is the auto-ping, not a block signal.

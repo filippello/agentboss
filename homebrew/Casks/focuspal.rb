@@ -12,6 +12,14 @@ cask "focuspal" do
 
   app "FocusPal.app"
 
+  # FocusPal is unsigned (no Apple Developer ID). Strip Gatekeeper's
+  # quarantine bit on install so users don't have to manually right-click
+  # → Open every cold launch. We also re-sign ad-hoc inside the .app
+  # itself so spctl is happy that the bundle is internally consistent.
+  postflight do
+    system "/usr/bin/xattr", "-cr", "#{appdir}/FocusPal.app"
+  end
+
   zap trash: [
     "~/.focuspal",
     "~/.claude/focuspal",

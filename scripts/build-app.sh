@@ -90,9 +90,22 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Strip extended attributes that Gatekeeper sometimes uses to mark unsigned
-# downloads. Keeps the right-click → Open dance one step shorter for users
-# building from source.
+# Ad-hoc codesign the entire bundle.
+#
+# Why: `swift build` already embeds an ad-hoc signature in the executable,
+# but a bare ad-hoc signature inside a .app bundle without a matching
+# `Contents/_CodeSignature/` directory makes macOS reject the launch with
+# "code has no resources but signature indicates they must be present".
+# `codesign --force --deep --sign -` writes the missing CodeResources and
+# re-signs the binary so the bundle is internally consistent. This is NOT
+# Apple-issued signing — Gatekeeper will still warn the first time, but
+# the app will at least be launchable.
+codesign --force --deep --sign - "$APP_DIR" 2>&1 | sed 's/^/  /' || true
+
+# Strip macOS quarantine + provenance xattrs from the bundle. These are
+# re-added when the user downloads the zip from the browser, so this only
+# helps for local builds — the Cask formula does another `xattr -cr` on
+# install for distribution.
 xattr -cr "$APP_DIR" 2>/dev/null || true
 
 echo "==> Done: $APP_DIR"
