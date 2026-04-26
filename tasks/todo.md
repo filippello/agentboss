@@ -116,27 +116,20 @@ final class SkillContext {
 - [ ] **MANUAL**: `git remote set-url origin https://github.com/filippello/focuspal.git`
 - [ ] **MANUAL**: rename local working directory `desktophelper` → `focuspal` (close any Claude Code sessions in this dir first, then `mv ~/Projects/tools/desktophelper ~/Projects/tools/focuspal`)
 
-### B2. .app bundle script
-- [ ] Create `scripts/build-app.sh`:
-  - `swift build -c release`
-  - Build `FocusPal.app/Contents/{MacOS,Resources}` structure
-  - Copy binary + Resources (sprites, config.default.json)
-  - Generate `Info.plist` with `LSUIElement=true`
-  - Output to `dist/FocusPal.app`
-- [ ] Verify: `./scripts/build-app.sh` produces a working `.app` you can double-click
+### B2. .app bundle script  ✅
+- [x] `scripts/build-app.sh` produces `dist/FocusPal.app` (744K) with `LSUIElement=true`, `com.filippello.focuspal` bundle id, signed-off via `xattr -cr`. Reads from `swift build -c release`.
+- [x] Verified locally: double-click on `dist/FocusPal.app` launches and shows menu bar 🐸.
 
-### B3. GitHub Releases automation
-- [ ] `.github/workflows/release.yml`
-  - Trigger: tags `v*`
-  - macos-14 (arm64) runner
-  - Steps: build → run script → zip the `.app` → upload as release asset
-- [ ] Verify: `git tag v0.2.0-rc.1 && git push --tags` produces a Release with `FocusPal.app.zip`
+### B3. GitHub Releases automation  ✅
+- [x] `.github/workflows/release.yml` on macos-14 (arm64). Builds + zips + uploads zip + sha256 file.
+- [x] Verified end-to-end: `git tag v0.2.0 && git push origin v0.2.0` triggered the workflow → release published with both assets → re-downloaded zip + verified sha256 matches.
 
-### B4. Homebrew tap
-- [ ] Create separate repo: `filippello/homebrew-tap` (public)
-- [ ] Add `Casks/focuspal.rb` Cask formula referencing the GitHub release URL + sha256
-- [ ] Update `README.md` install instructions: `brew install --cask filippello/tap/focuspal`
-- [ ] Verify: `brew tap filippello/tap && brew install --cask focuspal` puts FocusPal.app in `/Applications` and it runs
+### B4. Homebrew tap  ✅ (formula ready, manual tap repo creation pending)
+- [x] `homebrew/Casks/focuspal.rb` with version `0.2.0`, SHA-256 from the published release, `app "FocusPal.app"`, `zap` cleanup of `~/.focuspal` + `~/.claude/focuspal` + plist.
+- [x] `homebrew/README.md` documents: create `homebrew-tap` repo, copy formula, push, instructions for bumping version on each release.
+- [x] README updated with three install paths.
+- [ ] **MANUAL**: create `https://github.com/filippello/homebrew-tap` (public), copy `homebrew/Casks/focuspal.rb` → `Casks/focuspal.rb` in that repo, push.
+- [ ] **MANUAL verify**: `brew tap filippello/tap && brew install --cask focuspal` installs FocusPal.app to `/Applications`.
 
 ## Out of scope (v0.3)
 - AISummarySkill (lee transcripts + Claude API)
@@ -148,6 +141,33 @@ final class SkillContext {
 ## Order of operations
 A0 → A1 → A2 → A3 → A4 → B1 → B2 → B3 → B4
 
-## Review (fill in when done)
+## Review — v0.2 milestone
 
-_To be added at end of milestone._
+**Shipped:**
+
+1. **Skill framework**: `Skill` protocol + `SkillContext` + `SkillRegistry` with priority/coalescing action queue, fast/slow tick events, mode-change broadcast, per-skill UserDefaults storage, and a single menu surface. AppDelegate is now wiring + UI only — adding a new behavior is one `register()` call.
+2. **3 example skills**: `ReminderSkill` (replaces ad-hoc ReminderManager), `HealthBreakSkill` (replaces HealthReminder), and the demo `PomodoroSkill` with a fully interactive multi-step flow. Conversational `walkAndTalk` → `askFollowUp` chain keeps the frog on screen across questions.
+3. **Bug fixes during the refactor**: stuck disappearing frame (cleared layer.contents), Stop+Notification double-firing causing every reminder to read as "awaiting input" (5s window check), button mapping for arbitrary `BubbleButton` lists (was hardcoded 4 snooze options).
+4. **AGENTS.md** at repo root (symlinked from CLAUDE.md): architecture map, full glossary, "How to add a Skill" walkthrough with a copy-pasteable template, conventions, and a 14-step lifecycle trace from event hook → frog disappearing.
+5. **Distribution path**: `scripts/build-app.sh` produces a 744K `.app`, `.github/workflows/release.yml` auto-publishes a GitHub Release on tag pushes (verified end-to-end with v0.2.0), `homebrew/Casks/focuspal.rb` ready to drop into a `homebrew-tap` repo for `brew install --cask filippello/tap/focuspal`.
+6. **Project rename** AgentBoss → FocusPal across code, runtime paths (`~/.focuspal/`, `~/.claude/focuspal/`), and docs. HookInstaller migrates legacy hooks automatically.
+
+**Manual follow-ups left for the user (non-blocking):**
+
+- Rename GitHub repo `agentboss` → `focuspal` (Settings → Rename), update local `git remote set-url`.
+- Rename local working dir `desktophelper` → `focuspal`.
+- Create `https://github.com/filippello/homebrew-tap` (public) and push `homebrew/Casks/focuspal.rb` into it.
+
+**What I'd revisit if doing it again:**
+
+- Used a 3-arg python3 script bundled at runtime for the Claude Code hook payload — the current bash one-liner can't capture `session_id` from stdin JSON, so all events share an empty session id. Reminders end up clobbering one another across repos. Working as intended for a single-session use, but worth a follow-up.
+- Could have written one or two unit tests around `ReminderSkill.addReminder` (kinds, upgrade rules, snooze) — the framework is pure-ish, the tests would have caught the auto-Notification upgrade bug before the user did.
+
+**Out of scope, deferred to v0.3:**
+
+- AISummarySkill (read transcripts via Claude API, render 1-line task summaries)
+- StatsSkill (SwiftUI dashboard from events.jsonl + history.jsonl)
+- Agentic layer (skills that emit `AgenticAction`s — spawn Claude sessions, run commands)
+- Codesigning + notarization (need Apple Developer ID, $99/year)
+- Auto-update mechanism
+- Per-session reminders fix (needs hook payload parsing — see "What I'd revisit")
