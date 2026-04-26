@@ -103,8 +103,23 @@ struct FrogAction {
         /// fires with that button.
         case walkAndTalk(message: String, buttons: [BubbleButton], onChosen: (BubbleButton) -> Void)
 
+        /// Continuation of a `walkAndTalk` conversation: the frog stays put
+        /// and only the speech bubble + buttons are swapped. Used for
+        /// multi-step Q&A flows (Pomodoro asking duration then rest, etc.).
+        /// Should only be enqueued from inside another action's `onChosen`.
+        case askFollowUp(message: String, buttons: [BubbleButton], onChosen: (BubbleButton) -> Void)
+
         /// Force the frog off-screen now, cancelling any running animation.
         case sleep
+    }
+
+    /// True for action kinds that present buttons the user can pick — these
+    /// can chain seamlessly into a follow-up without walking the frog back.
+    var presentsButtons: Bool {
+        switch kind {
+        case .walkAndTalk, .askFollowUp: return true
+        default: return false
+        }
     }
 
     enum Priority: Int { case low = 0, normal = 1, high = 2 }

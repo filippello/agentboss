@@ -86,4 +86,16 @@ class CharacterStateMachine {
         let restX = screen.maxX - 100
         transition(to: .walking(direction: .toPoint(restX)))
     }
+
+    /// Replace the current talking message without re-running the alert /
+    /// walking sequence. Used by `askFollowUp` to swap the speech bubble
+    /// while the frog stays in place.
+    func replayTalking(message: String) {
+        if case .talking = state {
+            transition(to: .talking(message: message))
+        } else {
+            // Frog isn't standing yet — fall back to the full walk-out flow.
+            onClaudeCodeEvent(message: message)
+        }
+    }
 }

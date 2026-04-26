@@ -120,11 +120,25 @@ final class ReminderSkill: Skill {
     private func addReminder(sessionId: String, repoName: String, summary: String, kind: ReminderKind) {
         let delay = (kind == .awaitingInput) ? awaitingInputDelay : firstReminderDelay
 
-        // Upgrade rule: if we already have a taskComplete reminder for this
-        // session and a more-urgent awaitingInput arrives, shorten the delay.
+        // Claude Code's Notification hook fires automatically right after every
+        // Stop hook (it's how the auto "I'm done" sound is triggered). So a
+        // .awaitingInput event arriving within a few seconds of an existing
+        // .taskComplete is almost always that auto-ping — NOT a genuine "I'm
+        // blocked waiting for permission" signal. Treat it as noise and keep
+        // the .taskComplete reminder intact.
+        //
+        // If the .awaitingInput arrives well after the Stop (or with no Stop
+        // at all), it's a real block — upgrade the reminder.
+        let autoNotificationWindow: TimeInterval = 5
         if let existing = reminders[sessionId],
            kind == .awaitingInput,
            existing.kind != .awaitingInput {
+            let elapsed = Date().timeIntervalSince(existing.completedAt)
+            if elapsed < autoNotificationWindow {
+                // Auto-ping after Stop — ignore it, keep the existing reminder.
+                return
+            }
+            // Standalone Notification → real block, upgrade.
             reminders[sessionId] = PendingReminder(
                 sessionId: sessionId,
                 repoName: repoName,

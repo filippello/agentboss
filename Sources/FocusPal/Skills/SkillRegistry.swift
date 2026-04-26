@@ -120,9 +120,34 @@ final class SkillRegistry {
     /// menu/UI layer to route a click on a bubble button back to the right Skill.
     func bubbleButtonChosen(_ button: BubbleButton) {
         guard let action = runningAction else { return }
-        if case .walkAndTalk(_, _, let onChosen) = action.kind {
+        switch action.kind {
+        case .walkAndTalk(_, _, let onChosen),
+             .askFollowUp(_, _, let onChosen):
             onChosen(button)
+        default:
+            break
         }
+    }
+
+    /// Peek at the next action that would run if the current one finished.
+    /// Used by the executor to decide whether to chain seamlessly into a
+    /// follow-up question or walk the frog back home.
+    func peekNextAction() -> FrogAction? {
+        return actionQueue.first
+    }
+
+    /// Pop the next action without running it. The caller is responsible for
+    /// running it themselves — used when chaining inline from an existing
+    /// running action (e.g. walkAndTalk → askFollowUp without walking back).
+    func consumeNextAction() -> FrogAction? {
+        guard !actionQueue.isEmpty else { return nil }
+        return actionQueue.removeFirst()
+    }
+
+    /// Replace the running action without firing completion. Used when
+    /// chaining seamlessly into a followUp.
+    func replaceRunningAction(with action: FrogAction) {
+        runningAction = action
     }
 
     private func drainQueue() {

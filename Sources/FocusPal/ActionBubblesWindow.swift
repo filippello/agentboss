@@ -1,38 +1,27 @@
 import AppKit
 
-/// Legacy snooze option for the action-button window. The Skill API uses
-/// generic `BubbleButton`s; this enum is kept as the wire format that
-/// `ActionBubblesWindow` reports clicks with. AppDelegate translates each
-/// option to the running action's matching `BubbleButton.id` ("dismiss",
-/// "10min", "1hour", "tomorrow") before forwarding to the registry.
-enum SnoozeOption {
-    case dismiss
-    case tenMinutes
-    case oneHour
-    case tomorrow
-}
-
-struct ActionButton {
-    let icon: String
-    let label: String
-    let action: SnoozeOption
-}
-
-protocol ActionBubblesDelegate: AnyObject {
-    func actionSelected(_ option: SnoozeOption)
-}
-
+/// Renders a row of `BubbleButton`s flanking the on-screen frog. Buttons are
+/// fully data-driven — Skills declare them inside their `walkAndTalk` action
+/// and the registry pipes the chosen one back to the originating Skill.
+///
+/// Layout: up to 4 buttons split 2/2 around the character. Beyond 4, extra
+/// buttons stack to the right.
 class ActionBubblesWindow: NSWindow {
+
+    // MARK: - Public delegate
+
     weak var actionDelegate: ActionBubblesDelegate?
+
+    // MARK: - Internal state
+
     private var buttonWindows: [NSWindow] = []
+    private var currentButtons: [BubbleButton] = []
     private var dismissTimer: Timer?
 
-    private let actions: [ActionButton] = [
-        ActionButton(icon: "👍", label: "OK", action: .dismiss),
-        ActionButton(icon: "🕐", label: "10 min", action: .tenMinutes),
-        ActionButton(icon: "🕐", label: "1 hour", action: .oneHour),
-        ActionButton(icon: "🌙", label: "Tomorrow", action: .tomorrow),
-    ]
+    /// Action to run if the user lets the bubble time out without picking. Set
+    /// per-show (so the frog defaults to "snooze 10m" for reminders, but
+    /// "cancel" for Pomodoro flow steps).
+    private var defaultButtonOnTimeout: BubbleButton?
 
     init() {
         super.init(
@@ -46,26 +35,26 @@ class ActionBubblesWindow: NSWindow {
         self.level = .floating
     }
 
-    func show(around characterWindow: NSWindow) {
+    /// Display `buttons` flanking `characterWindow`. If the user lets the
+    /// bubble auto-dismiss, `defaultOnTimeout` (if set) is reported.
+    func show(
+        buttons: [BubbleButton],
+        around characterWindow: NSWindow,
+        defaultOnTimeout: BubbleButton? = nil,
+        timeoutSeconds: TimeInterval = 15
+    ) {
         dismiss()
+        currentButtons = buttons
+        defaultButtonOnTimeout = defaultOnTimeout
 
         let charFrame = characterWindow.frame
-        let btnSize = NSSize(width: 62, height: 40)
+        let btnSize = NSSize(width: 70, height: 44)
         let gap: CGFloat = 6
 
-        // 2 buttons on each side of the character
-        // Left side: OK, 10 min (from left to right toward character)
-        // Right side: 1 hour, Tomorrow (from character to right)
-        let positions: [NSPoint] = [
-            // Left 2
-            NSPoint(x: charFrame.minX - btnSize.width * 2 - gap * 2, y: charFrame.midY - btnSize.height / 2),
-            NSPoint(x: charFrame.minX - btnSize.width - gap, y: charFrame.midY - btnSize.height / 2),
-            // Right 2
-            NSPoint(x: charFrame.maxX + gap, y: charFrame.midY - btnSize.height / 2),
-            NSPoint(x: charFrame.maxX + btnSize.width + gap * 2, y: charFrame.midY - btnSize.height / 2),
-        ]
+        let positions = layoutPositions(buttonCount: buttons.count, charFrame: charFrame, btnSize: btnSize, gap: gap)
 
-        for (index, action) in actions.enumerated() {
+        for (index, button) in buttons.enumerated() {
+            guard index < positions.count else { break }
             let btnWindow = NSWindow(
                 contentRect: NSRect(origin: positions[index], size: btnSize),
                 styleMask: .borderless,
@@ -78,23 +67,22 @@ class ActionBubblesWindow: NSWindow {
             btnWindow.level = .floating
             btnWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
-            let btn = ActionButtonView(
+            let view = ActionButtonView(
                 frame: NSRect(origin: .zero, size: btnSize),
-                icon: action.icon,
-                label: action.label,
+                icon: button.icon,
+                label: button.label,
                 tag: index
             )
-            btn.onClick = { [weak self] tag in
-                let option = self?.actions[tag].action ?? .dismiss
-                self?.dismiss()
-                self?.actionDelegate?.actionSelected(option)
+            view.onClick = { [weak self] tag in
+                guard let self = self, tag < self.currentButtons.count else { return }
+                let chosen = self.currentButtons[tag]
+                self.dismiss()
+                self.actionDelegate?.actionSelected(chosen)
             }
-            btnWindow.contentView = btn
+            btnWindow.contentView = view
 
-            // Animate in
             btnWindow.alphaValue = 0
             btnWindow.orderFront(nil)
-
             let delay = Double(index) * 0.05
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 NSAnimationContext.runAnimationGroup { ctx in
@@ -106,11 +94,11 @@ class ActionBubblesWindow: NSWindow {
             buttonWindows.append(btnWindow)
         }
 
-        // Auto-dismiss after 15 seconds → default 10 min snooze
-        dismissTimer?.invalidate()
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
-            self?.dismiss()
-            self?.actionDelegate?.actionSelected(.tenMinutes)
+        if let timeoutDefault = defaultOnTimeout {
+            dismissTimer = Timer.scheduledTimer(withTimeInterval: timeoutSeconds, repeats: false) { [weak self] _ in
+                self?.dismiss()
+                self?.actionDelegate?.actionSelected(timeoutDefault)
+            }
         }
     }
 
@@ -119,7 +107,7 @@ class ActionBubblesWindow: NSWindow {
         dismissTimer = nil
         let windows = buttonWindows
         buttonWindows.removeAll()
-        // Dismiss async to avoid closing window from within its own click handler
+        currentButtons = []
         DispatchQueue.main.async {
             for w in windows {
                 w.orderOut(nil)
@@ -127,9 +115,43 @@ class ActionBubblesWindow: NSWindow {
             }
         }
     }
+
+    // MARK: - Layout
+
+    /// Splits up to 4 buttons evenly to the left and right of the character.
+    /// 5+ buttons stack to the right. Beyond what the screen can hold we
+    /// just clip — Skills should keep their button count to ≤ 4.
+    private func layoutPositions(buttonCount: Int, charFrame: NSRect, btnSize: NSSize, gap: CGFloat) -> [NSPoint] {
+        let y = charFrame.midY - btnSize.height / 2
+        let leftCount = min(buttonCount, 2)
+        let rightCount = max(0, buttonCount - leftCount)
+
+        var positions: [NSPoint] = []
+
+        // Left side — leftmost first.
+        // Index 0 is the outermost (farthest from character); 1 is closer.
+        for i in 0..<leftCount {
+            let offset = CGFloat(leftCount - i) * (btnSize.width + gap)
+            positions.append(NSPoint(x: charFrame.minX - offset, y: y))
+        }
+        // Right side — closest first.
+        for i in 0..<rightCount {
+            let offset = CGFloat(i) * (btnSize.width + gap) + gap
+            positions.append(NSPoint(x: charFrame.maxX + offset, y: y))
+        }
+
+        return positions
+    }
+}
+
+// MARK: - Delegate
+
+protocol ActionBubblesDelegate: AnyObject {
+    func actionSelected(_ button: BubbleButton)
 }
 
 // MARK: - Individual button view
+
 private class ActionButtonView: NSView {
     var onClick: ((Int) -> Void)?
     private let icon: String
@@ -164,9 +186,7 @@ private class ActionButtonView: NSView {
         let rect = bounds.insetBy(dx: 2, dy: 2)
         let path = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
 
-        let bgColor = isHovered
-            ? NSColor.white
-            : NSColor.white.withAlphaComponent(0.9)
+        let bgColor = isHovered ? NSColor.white : NSColor.white.withAlphaComponent(0.9)
         bgColor.setFill()
         path.fill()
 
@@ -176,36 +196,20 @@ private class ActionButtonView: NSView {
             path.stroke()
         }
 
-        // Draw icon + label
         let text = "\(icon)\n\(label)"
         let style = NSMutableParagraphStyle()
         style.alignment = .center
         style.lineSpacing = 0
-
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 11, weight: .medium),
             .foregroundColor: NSColor.black,
             .paragraphStyle: style
         ]
-        let textRect = rect.insetBy(dx: 2, dy: 4)
-        (text as NSString).draw(in: textRect, withAttributes: attrs)
+        (text as NSString).draw(in: rect.insetBy(dx: 2, dy: 4), withAttributes: attrs)
     }
 
-    override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        needsDisplay = true
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        needsDisplay = true
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        onClick?(buttonTag)
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
-        return true
-    }
+    override func mouseEntered(with event: NSEvent) { isHovered = true; needsDisplay = true }
+    override func mouseExited(with event: NSEvent)  { isHovered = false; needsDisplay = true }
+    override func mouseDown(with event: NSEvent)    { onClick?(buttonTag) }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }

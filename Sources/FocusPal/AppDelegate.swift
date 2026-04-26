@@ -270,6 +270,13 @@ extension AppDelegate: FrogActionExecutor {
         case .walkAndTalk(let message, _, _):
             stateMachine.onClaudeCodeEvent(message: message)
 
+        case .askFollowUp(let message, _, _):
+            // Frog should already be at centre talking. Dismiss any leftover
+            // buttons and re-render the bubble with the new question.
+            actionBubbles.dismiss()
+            // Resetting state to .talking re-triggers the speak step in the
+            // stateDidChange handler so the bubble + animation update.
+            stateMachine.replayTalking(message: message)
         case .sleep:
             // Force frog off-screen immediately and complete.
             actionBubbles.dismiss()
@@ -279,7 +286,7 @@ extension AppDelegate: FrogActionExecutor {
     }
 
     /// Called when the frog returns to .idle after running an action.
-    private func finishCurrentAction() {
+    fileprivate func finishCurrentAction() {
         let completion = currentActionCompletion
         currentAction = nil
         currentActionCompletion = nil
@@ -358,6 +365,7 @@ extension AppDelegate: CharacterStateDelegate {
             refreshRestPosition()
             if let pos = restPosition { characterWindow.setFrameOrigin(pos) }
             characterWindow.alphaValue = 1
+            characterView()?.clearFrame()
             characterWindow.orderFront(nil)
             characterView()?.playAnimation(.appearing) { [weak self] in
                 self?.characterView()?.playAnimation(.doubleJump) { [weak self] in
@@ -374,6 +382,10 @@ extension AppDelegate: CharacterStateDelegate {
             refreshRestPosition()
             if let pos = restPosition { characterWindow.setFrameOrigin(pos) }
             characterWindow.alphaValue = 1
+            // Clear any stale layer content from a previous animation BEFORE
+            // showing the window — otherwise macOS briefly composites the old
+            // frame at the new position.
+            characterView()?.clearFrame()
             characterWindow.orderFront(nil)
             characterView()?.playAnimation(.appearing) { [weak self] in
                 guard let self = self else { return }
@@ -390,6 +402,7 @@ extension AppDelegate: CharacterStateDelegate {
             characterView()?.playAnimation(.disappearing) { [weak self] in
                 guard let self = self else { return }
                 self.characterWindow.orderOut(nil)
+                self.characterView()?.clearFrame()
                 self.characterWindow.alphaValue = 1
                 self.stateMachine.onHideComplete()
                 self.finishCurrentAction()
@@ -406,23 +419,38 @@ extension AppDelegate: CharacterStateDelegate {
 // MARK: - ActionBubblesDelegate
 
 extension AppDelegate: ActionBubblesDelegate {
-    func actionSelected(_ option: SnoozeOption) {
-        // Translate the legacy SnoozeOption into the running action's
-        // matching BubbleButton and notify the registry, which routes back
-        // to the Skill that emitted the walkAndTalk.
-        if case .walkAndTalk(_, let buttons, _) = currentAction?.kind {
-            let buttonId: String
-            switch option {
-            case .dismiss:     buttonId = "dismiss"
-            case .tenMinutes:  buttonId = "10min"
-            case .oneHour:     buttonId = "1hour"
-            case .tomorrow:    buttonId = "tomorrow"
+    func actionSelected(_ button: BubbleButton) {
+        // Forward to the registry — it fires the running action's onChosen,
+        // which may synchronously enqueue a follow-up question.
+        let owner = currentAction?.owner
+        registry.bubbleButtonChosen(button)
+
+        // If the Skill enqueued a follow-up that's also a button-based
+        // question from the same skill, chain into it without walking the
+        // frog back home — keeps the conversation seamless.
+        if let next = registry.peekNextAction(),
+           next.owner == owner,
+           case .askFollowUp = next.kind,
+           let follow = registry.consumeNextAction()
+        {
+            actionBubbles.dismiss()
+            // Bridge: end the current action and immediately run the follow-up
+            // on the same standing frog. We re-use the current animation state
+            // and just swap the bubble.
+            let oldCompletion = currentActionCompletion
+            currentAction = follow
+            currentActionCompletion = { [weak self] in
+                oldCompletion?()
+                self?.registry.actionDidComplete(follow.id)
             }
-            if let chosen = buttons.first(where: { $0.id == buttonId }) {
-                registry.bubbleButtonChosen(chosen)
+            registry.replaceRunningAction(with: follow)
+            if case .askFollowUp(let message, _, _) = follow.kind {
+                stateMachine.replayTalking(message: message)
             }
+            return
         }
-        // Walk the frog back home and disappear.
+
+        // No follow-up — walk the frog back home and disappear as usual.
         stateMachine.onFinishedTalking()
     }
 }
@@ -481,12 +509,13 @@ extension AppDelegate: CharacterViewDelegate {
         switch stateMachine.state {
         case .talking:
             speechController.stop()
-            actionBubbles.show(around: characterWindow)
+            showBubbleButtonsForCurrentAction()
         case .popAndSay:
             speechController.stop()
             characterView()?.playAnimation(.disappearing) { [weak self] in
                 guard let self = self else { return }
                 self.characterWindow.orderOut(nil)
+                self.characterView()?.clearFrame()
                 self.characterWindow.alphaValue = 1
                 self.stateMachine.onHideComplete()
                 self.finishCurrentAction()
@@ -497,20 +526,42 @@ extension AppDelegate: CharacterViewDelegate {
     }
 }
 
+extension AppDelegate {
+    /// Read the buttons + timeout default from the current walkAndTalk action
+    /// and hand them to ActionBubblesWindow. No-op if the action isn't a
+    /// walkAndTalk.
+    fileprivate func showBubbleButtonsForCurrentAction() {
+        guard let action = currentAction else { return }
+        let buttons: [BubbleButton]
+        switch action.kind {
+        case .walkAndTalk(_, let bs, _), .askFollowUp(_, let bs, _):
+            buttons = bs
+        default:
+            return
+        }
+        actionBubbles.show(
+            buttons: buttons,
+            around: characterWindow,
+            defaultOnTimeout: buttons.first(where: { $0.id == "10min" })
+        )
+    }
+}
+
 // MARK: - SpeechControllerDelegate
 
 extension AppDelegate: SpeechControllerDelegate {
     func speechDidFinish() {
         switch stateMachine.state {
         case .talking:
-            // Bubble timed out without a click — show the snooze buttons.
-            actionBubbles.show(around: characterWindow)
+            // Bubble timed out without a click — show the action buttons.
+            showBubbleButtonsForCurrentAction()
 
         case .popAndSay:
             // Quick pop is over — disappear, no buttons.
             characterView()?.playAnimation(.disappearing) { [weak self] in
                 guard let self = self else { return }
                 self.characterWindow.orderOut(nil)
+                self.characterView()?.clearFrame()
                 self.characterWindow.alphaValue = 1
                 self.stateMachine.onHideComplete()
                 self.finishCurrentAction()

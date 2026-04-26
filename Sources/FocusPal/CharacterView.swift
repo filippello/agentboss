@@ -148,6 +148,28 @@ class CharacterView: NSView {
         needsDisplay = true
     }
 
+    /// Drop the rendered sprite frame so the view paints transparent next.
+    /// Called after a disappearing animation finishes — keeps a stale final
+    /// frame from peeking through if the window is later orderFront'd for a
+    /// new pop-and-say (or the user clicks before we've redrawn).
+    ///
+    /// Important: also nukes the backing CALayer's contents so the macOS
+    /// compositor doesn't keep showing the cached final frame after
+    /// `orderOut`. Without this, hiding+showing the window in quick
+    /// succession (e.g. between two queued popAndSays) flashes the previous
+    /// disappearing frame at the new position.
+    func clearFrame() {
+        currentImage = nil
+        currentType = nil
+        currentAnimation = nil
+        animationTimer?.invalidate()
+        animationTimer = nil
+        layer?.contents = nil
+        layer?.setNeedsDisplay()
+        needsDisplay = true
+        displayIfNeeded()
+    }
+
     override func mouseDown(with event: NSEvent) {
         clickDelegate?.characterWasClicked()
     }
