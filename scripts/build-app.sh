@@ -56,9 +56,14 @@ mkdir -p "$MACOS" "$RESOURCES"
 cp "$EXECUTABLE" "$MACOS/$APP_NAME"
 chmod +x "$MACOS/$APP_NAME"
 
-# SPM resource bundle (sprites + default config). Bundle.module expects to
-# find it as a sub-bundle named "<TargetName>_<TargetName>.bundle" inside
-# the main bundle's Resources, so we copy it verbatim.
+# SPM resource bundle (sprites + default config). The auto-generated
+# `resource_bundle_accessor.swift` resolves the bundle via
+# `Bundle.main.bundleURL.appendingPathComponent("<Target>_<Target>.bundle")`
+# — i.e. at the .app's *root*, not inside Contents/Resources. That's
+# unconventional but it's what SPM emits, so we mirror the bundle to both
+# locations: at the root for SPM, and inside Contents/Resources/ as a copy
+# so the .app passes basic codesign --verify checks.
+cp -R "$RESOURCE_BUNDLE" "$APP_DIR/"
 cp -R "$RESOURCE_BUNDLE" "$RESOURCES/"
 
 # Info.plist
