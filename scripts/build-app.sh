@@ -81,6 +81,11 @@ cat > "$CONTENTS/Info.plist" <<PLIST
   <key>LSUIElement</key>                    <true/>
   <key>NSHighResolutionCapable</key>        <true/>
   <key>NSHumanReadableCopyright</key>       <string>© 2026 Federico Filippello — MIT</string>
+  <!-- FocusPal is a long-running menu-bar agent — opt out of macOS App Nap
+       + Automatic/Sudden Termination so the OS can't kill the frog while
+       it's waiting for Claude Code events. -->
+  <key>NSSupportsAutomaticTermination</key> <false/>
+  <key>NSSupportsSuddenTermination</key>    <false/>
 </dict>
 </plist>
 PLIST
