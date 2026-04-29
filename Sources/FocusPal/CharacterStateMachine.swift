@@ -27,6 +27,14 @@ enum WalkDirection: Equatable {
 protocol CharacterStateDelegate: AnyObject {
     func stateDidChange(to state: CharacterState)
     func characterDidFinishTalking()
+    /// Fires when the frog has just walked to its target point and is about
+    /// to begin talking. Only fires for the initial walkAndTalk arrival —
+    /// askFollowUp swaps via `replayTalking` don't trigger it.
+    func characterDidArriveAtCentre()
+}
+
+extension CharacterStateDelegate {
+    func characterDidArriveAtCentre() {}
 }
 
 class CharacterStateMachine {
@@ -63,6 +71,10 @@ class CharacterStateMachine {
         } else if case .walking(direction: .toPoint) = state {
             transition(to: .talking(message: pendingMessage ?? "Task complete!"))
             pendingMessage = nil
+            // Notify the delegate that this is the *initial* arrival so it
+            // can broadcast a one-shot AgentEvent. We deliberately don't
+            // fire this from `replayTalking` (askFollowUp swaps).
+            delegate?.characterDidArriveAtCentre()
         }
     }
 

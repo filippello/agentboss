@@ -29,6 +29,7 @@ final class PomodoroSkill: Skill {
     private var state: State = .idle
     private var menuHandle: MenuItemHandle?
     private var restWindow: PomodoroCountdownWindow?
+    private var restParty: RestPartyOrchestrator?
 
     // MARK: - Choice tables (kept short so the 4-button layout fits)
 
@@ -71,14 +72,40 @@ final class PomodoroSkill: Skill {
                 refreshMenuTitle(now: now)
             }
             checkExpiry(now: now)
+
+        case .frogArrivedAtCentre(let owner) where owner == name:
+            // The frog has just finished walking to centre for our rest
+            // walkAndTalk. Spawn the chaos right now (party + countdown)
+            // so the user reads it as a single coordinated moment.
+            spawnRestChaosIfNeeded()
+
         default:
             break
         }
     }
 
+    /// Spawn fruits + countdown widget for the in-progress rest, if not
+    /// already running. Idempotent — safe to call from frogArrivedAtCentre.
+    private func spawnRestChaosIfNeeded() {
+        guard case .resting(_, _, let endsAt) = state, restParty == nil else { return }
+
+        let restSeconds = endsAt.timeIntervalSinceNow
+        let party = RestPartyOrchestrator()
+        party.start(restSeconds: max(restSeconds, 30))
+        restParty = party
+
+        let win = restWindow ?? PomodoroCountdownWindow()
+        win.onSkip = { [weak self] in self?.skipRest() }
+        win.onExpire = { [weak self] in self?.handleRestExpired() }
+        win.start(prefix: "Rest", endsAt: endsAt, anchorTopLeft: belowFrogAnchor())
+        restWindow = win
+    }
+
     func teardown() {
         if let handle = menuHandle { ctx.removeMenuItem(handle) }
         restWindow?.stop()
+        restParty?.stop()
+        restParty = nil
     }
 
     // MARK: - Menu
@@ -118,9 +145,17 @@ final class PomodoroSkill: Skill {
     private func cancelEverything() {
         restWindow?.stop()
         restWindow = nil
+        restParty?.stop()
+        restParty = nil
+        let wasResting: Bool
+        if case .resting = state { wasResting = true } else { wasResting = false }
         state = .idle
         ctx.emit(.modeChanged(.normal))
         updateMenuTitle()
+        // If the frog was standing at centre during rest, walk it home now.
+        if wasResting {
+            ctx.dismissRunningAction()
+        }
     }
 
     // MARK: - Conversation handlers
@@ -178,6 +213,32 @@ final class PomodoroSkill: Skill {
         }
     }
 
+    // MARK: - Demo entry point (used by the menu bar's "Demo Rest Party" item)
+
+    /// Skip the asking phase and jump straight into a rest cycle of the
+    /// requested length (seconds). Same flow as `startRest` — the chaos
+    /// spawns when the frog arrives at centre via `.frogArrivedAtCentre`.
+    /// Default 300 = 5 min (real Pomodoro break duration, good for video
+    /// recording).
+    func runRestDemo(restSeconds: Int = 300) {
+        let endsAt = Date().addingTimeInterval(TimeInterval(restSeconds))
+        let restMinutes = max(1, restSeconds / 60)
+        state = .resting(focusMinutes: 25, restMinutes: restMinutes, endsAt: endsAt)
+        updateMenuTitle()
+        NSSound.beep()
+
+        ctx.enqueue(FrogAction(
+            owner: name,
+            kind: .walkAndTalk(
+                message: "What a mess in here! Go rest, the crew will tidy up. \(restMinutes) min.",
+                buttons: [],
+                onChosen: { _ in }
+            ),
+            priority: .high,
+            coalesceKey: "pomodoro-rest"
+        ))
+    }
+
     // MARK: - Phase transitions
 
     private func startFocus(focusMinutes: Int, restMinutes: Int) {
@@ -201,40 +262,33 @@ final class PomodoroSkill: Skill {
     private func startRest(focusMinutes: Int, restMinutes: Int) {
         let endsAt = Date().addingTimeInterval(TimeInterval(restMinutes * 60))
         state = .resting(focusMinutes: focusMinutes, restMinutes: restMinutes, endsAt: endsAt)
-        // Stay in `.focus` mode during rest too — we don't want health pops or
-        // Claude reminders interrupting the user's break either.
         updateMenuTitle()
-
-        ctx.enqueue(FrogAction(
-            owner: name,
-            kind: .popAndSay(
-                message: "Nice work! \(restMinutes) min rest — drink water, stretch, look out the window.",
-                duration: 5.0
-            ),
-            priority: .normal,
-            coalesceKey: "pomodoro-rest-start"
-        ))
         NSSound.beep()
 
-        // Persistent countdown widget. Anchor at the top-right of the visible
-        // screen so it sits near where the frog rests without overlapping the
-        // menu bar.
-        let win = restWindow ?? PomodoroCountdownWindow()
-        win.onSkip = { [weak self] in self?.skipRest() }
-        win.onExpire = { [weak self] in self?.handleRestExpired() }
-        let anchor = topRightAnchor()
-        win.start(prefix: "Rest", endsAt: endsAt, anchorTopLeft: anchor)
-        restWindow = win
+        // Walk the frog out to centre and KEEP it standing there for the
+        // whole rest. The chaos (party + countdown) is spawned by the
+        // `.frogArrivedAtCentre` event handler the instant the frog stops
+        // walking — see `spawnRestChaosIfNeeded`.
+        ctx.enqueue(FrogAction(
+            owner: name,
+            kind: .walkAndTalk(
+                message: "What a mess in here! Go rest, the crew will tidy up. \(restMinutes) min.",
+                buttons: [],
+                onChosen: { _ in /* no buttons during rest */ }
+            ),
+            priority: .high,
+            coalesceKey: "pomodoro-rest"
+        ))
     }
 
-    /// Where to put the rest countdown widget — top-right of the main screen,
-    /// inset so it doesn't run into the menu bar.
-    private func topRightAnchor() -> NSPoint {
+    /// Where to put the rest countdown widget — just below the frog at
+    /// screen centre, since the frog walks to centre at the start of rest.
+    private func belowFrogAnchor() -> NSPoint {
         guard let screen = NSScreen.main else { return NSPoint(x: 100, y: 100) }
         let visible = screen.visibleFrame
         return NSPoint(
-            x: visible.maxX - 180,
-            y: visible.maxY - 16
+            x: visible.midX - 80,
+            y: visible.midY - 56
         )
     }
 
@@ -252,22 +306,26 @@ final class PomodoroSkill: Skill {
     }
 
     private func finishRest(focusMinutes: Int, restMinutes: Int) {
+        // Tear down the rest party — fruits and harvesters all go home.
+        restParty?.stop()
+        restParty = nil
+        restWindow?.stop()
+        restWindow = nil
+
         state = .askingNext(focusMinutes: focusMinutes, restMinutes: restMinutes)
         ctx.emit(.modeChanged(.normal))
         updateMenuTitle()
 
-        ctx.enqueue(FrogAction(
-            owner: name,
-            kind: .walkAndTalk(
-                message: "Break's done! Want another \(focusMinutes)-min round?",
-                buttons: Self.nextChoices,
-                onChosen: { [weak self] btn in
-                    self?.handleNextChoice(btn)
-                }
-            ),
-            priority: .high,
-            coalesceKey: "pomodoro-ask-next"
-        ))
+        // The frog has been standing at centre for the whole rest — pivot
+        // its current walkAndTalk to the next-round question in place. No
+        // walking home and back; the bubble + buttons just swap.
+        ctx.swapToFollowUp(
+            message: "Break's done! Want another \(focusMinutes)-min round?",
+            buttons: Self.nextChoices,
+            onChosen: { [weak self] btn in
+                self?.handleNextChoice(btn)
+            }
+        )
     }
 
     // MARK: - Tick driven

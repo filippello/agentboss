@@ -150,6 +150,19 @@ final class SkillRegistry {
         runningAction = action
     }
 
+    /// Skill-driven version of the click-time chain: pivot the standing
+    /// frog into a follow-up question without walking home.
+    func swapRunningAction(with action: FrogAction) {
+        actionExecutor?.swapAction(action)
+    }
+
+    /// Skill-driven abort: walk the frog home and tear down the running
+    /// action. Mirrors what happens when the user clicks the last snooze
+    /// option on a normal walkAndTalk.
+    func dismissRunningAction() {
+        actionExecutor?.dismissCurrentAction()
+    }
+
     private func drainQueue() {
         guard runningAction == nil, !actionQueue.isEmpty else { return }
         let next = actionQueue.removeFirst()
@@ -214,6 +227,18 @@ protocol FrogActionExecutor: AnyObject {
     /// Execute the given action. Must call `completion` exactly once when the
     /// frog is done (animation finished, user dismissed, etc.).
     func execute(_ action: FrogAction, completion: @escaping () -> Void)
+
+    /// Swap the running action's payload in place — the frog stays put and
+    /// the bubble + buttons re-render with the new content. Used by skills
+    /// that want to drive a multi-phase conversation without walking the
+    /// frog home and out again. Behaviour is undefined unless an action is
+    /// already running.
+    func swapAction(_ action: FrogAction)
+
+    /// Tell the frog to wrap up whatever it's doing and walk home. Used when
+    /// a skill needs to abort a long-running standing action (Pomodoro
+    /// cancel, etc.).
+    func dismissCurrentAction()
 }
 
 /// What the registry hands menu mutations off to. AppDelegate implements this

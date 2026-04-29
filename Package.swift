@@ -10,6 +10,9 @@ let package = Package(
             path: "Sources/FocusPal",
             resources: [
                 .copy("Resources/Main Characters"),
+                .copy("Resources/Items"),
+                .copy("Resources/Terrain"),
+                .copy("Resources/Background"),
                 .copy("Resources/config.default.json"),
             ]
         )

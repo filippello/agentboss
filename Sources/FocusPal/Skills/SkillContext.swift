@@ -23,6 +23,26 @@ final class SkillContext {
         registry?.enqueue(action)
     }
 
+    /// Swap the *running* action's payload without making the frog walk home.
+    /// Use this to pivot a long-standing conversation (e.g. Pomodoro rest →
+    /// "another round?" question) once a skill-side condition is met.
+    func swapToFollowUp(message: String,
+                       buttons: [BubbleButton],
+                       onChosen: @escaping (BubbleButton) -> Void) {
+        let next = FrogAction(
+            owner: skillName,
+            kind: .askFollowUp(message: message, buttons: buttons, onChosen: onChosen),
+            priority: .high
+        )
+        registry?.swapRunningAction(with: next)
+    }
+
+    /// Walk the frog home and tear down the running action. Used when a
+    /// skill needs to abort a standing-frog conversation it owns.
+    func dismissRunningAction() {
+        registry?.dismissRunningAction()
+    }
+
     /// Push an event into the bus so other Skills can react. Use for
     /// cross-skill coordination, e.g. Pomodoro emitting `.modeChanged(.focus)`.
     func emit(_ event: AgentEvent) {

@@ -30,6 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Skills
     private var registry: SkillRegistry!
     private var reminderSkill: ReminderSkill!     // kept for the demo button
+    private var pomodoroSkill: PomodoroSkill!     // kept for the rest-party demo
 
     // Action execution state
     private var currentAction: FrogAction?
@@ -118,7 +119,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         reminderSkill = ReminderSkill()
         registry.register(reminderSkill)
         registry.register(HealthBreakSkill())
-        registry.register(PomodoroSkill())
+        pomodoroSkill = PomodoroSkill()
+        registry.register(pomodoroSkill)
     }
 
     // MARK: - Menu Bar (base layout)
@@ -165,6 +167,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         demoItem.target = self
         menu.addItem(demoItem)
 
+        let partyItem = NSMenuItem(
+            title: "🍓 Demo Rest Party (5 min)",
+            action: #selector(runRestPartyDemo),
+            keyEquivalent: ""
+        )
+        partyItem.target = self
+        menu.addItem(partyItem)
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
@@ -195,6 +205,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 item.state = (item.representedObject as? String == name) ? .on : .off
             }
         }
+    }
+
+    @objc private func runRestPartyDemo() {
+        // Real-duration rest demo so the user can record a video of the
+        // full 5-min flow: frog walks to centre, chaos spawns AT THAT
+        // moment (not on a hardcoded delay), countdown ticks alongside
+        // the frog, then the next-round question pops in place at zero.
+        pomodoroSkill?.runRestDemo(restSeconds: 300)
     }
 
     @objc private func runDemo() {
@@ -291,6 +309,57 @@ extension AppDelegate: FrogActionExecutor {
         currentAction = nil
         currentActionCompletion = nil
         completion?()
+    }
+
+    // MARK: Programmatic action swap / dismiss (called by skills, not user clicks)
+
+    func swapAction(_ action: FrogAction) {
+        guard currentAction != nil else { return }
+
+        // Same chain pattern as the click-time path: keep the existing
+        // completion alive but make it also complete the new action.
+        let oldCompletion = currentActionCompletion
+        let oldId = currentAction?.id
+        currentAction = action
+        currentActionCompletion = { [weak self] in
+            oldCompletion?()
+            if let id = oldId { self?.registry.actionDidComplete(id) }
+            self?.registry.actionDidComplete(action.id)
+        }
+        registry.replaceRunningAction(with: action)
+
+        actionBubbles.dismiss()
+        switch action.kind {
+        case .askFollowUp(let message, _, _),
+             .walkAndTalk(let message, _, _):
+            stateMachine.replayTalking(message: message)
+        case .popAndSay, .sleep:
+            // Less common — but still valid: just kick the state machine.
+            // For popAndSay the executor would need to set up appearing again;
+            // not used today, can be implemented when a skill needs it.
+            break
+        }
+    }
+
+    func dismissCurrentAction() {
+        guard currentAction != nil else { return }
+        actionBubbles.dismiss()
+        switch stateMachine.state {
+        case .talking:
+            stateMachine.onFinishedTalking()
+        case .popAndSay:
+            characterView()?.playAnimation(.disappearing) { [weak self] in
+                guard let self = self else { return }
+                self.characterWindow.orderOut(nil)
+                self.characterView()?.clearFrame()
+                self.characterWindow.alphaValue = 1
+                self.stateMachine.onHideComplete()
+                self.finishCurrentAction()
+            }
+        default:
+            // Already off-screen / walking — just complete.
+            finishCurrentAction()
+        }
     }
 }
 
@@ -414,6 +483,14 @@ extension AppDelegate: CharacterStateDelegate {
         // The state machine is about to walk the frog back to rest position.
         // The action completion fires later in `.hiding`.
     }
+
+    func characterDidArriveAtCentre() {
+        // Broadcast so skills can hook the moment the frog lands at centre
+        // (not on subsequent askFollowUp swaps). PomodoroSkill uses this to
+        // spawn the rest party + countdown the instant the frog stops walking.
+        guard let owner = currentAction?.owner else { return }
+        registry?.dispatch(.frogArrivedAtCentre(owner: owner))
+    }
 }
 
 // MARK: - ActionBubblesDelegate
@@ -475,22 +552,37 @@ extension AppDelegate: SessionTrackerDelegate {
 // MARK: - ClaudeCodeMonitorDelegate (forward to registry)
 
 extension AppDelegate: ClaudeCodeMonitorDelegate {
+    /// Stable key for tying a stream of Stop / Notification / UserPromptSubmit
+    /// events back to the same Claude Code session.
+    ///
+    /// Claude Code's hooks are supposed to expose `session_id` via stdin JSON,
+    /// but our shell hook doesn't parse stdin — it injects `$CLAUDE_SESSION_ID`,
+    /// which doesn't exist as an env var, so every event arrives with
+    /// `session = ""`. Falling back to `cwd` (which we capture correctly via
+    /// `$PWD`) gives us a per-repo key. Two Claude Code instances in the same
+    /// repo would still collide, but cross-repo collisions disappear.
+    private func sessionKey(_ event: ClaudeCodeEvent) -> String {
+        if let s = event.session, !s.isEmpty { return s }
+        if let cwd = event.cwd, !cwd.isEmpty { return cwd }
+        return UUID().uuidString
+    }
+
     func claudeCodeDidComplete(event: ClaudeCodeEvent) {
-        let sessionId = event.session ?? UUID().uuidString
+        let key = sessionKey(event)
         let repo = event.cwd.map { ($0 as NSString).lastPathComponent } ?? "unknown"
-        registry?.dispatch(.taskCompleted(sessionId: sessionId, repo: repo, summary: event.summary))
+        registry?.dispatch(.taskCompleted(sessionId: key, repo: repo, summary: event.summary))
     }
 
     func claudeCodeAwaitsInput(event: ClaudeCodeEvent) {
-        let sessionId = event.session ?? UUID().uuidString
+        let key = sessionKey(event)
         let repo = event.cwd.map { ($0 as NSString).lastPathComponent } ?? "unknown"
-        registry?.dispatch(.awaitingInput(sessionId: sessionId, repo: repo))
+        registry?.dispatch(.awaitingInput(sessionId: key, repo: repo))
     }
 
     func claudeCodeUserPrompted(event: ClaudeCodeEvent) {
-        guard let sessionId = event.session else { return }
+        let key = sessionKey(event)
         let repo = event.cwd.map { ($0 as NSString).lastPathComponent } ?? "unknown"
-        registry?.dispatch(.userPrompted(sessionId: sessionId, repo: repo))
+        registry?.dispatch(.userPrompted(sessionId: key, repo: repo))
     }
 
     func claudeCodeStatusChanged(isRunning: Bool) {

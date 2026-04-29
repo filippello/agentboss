@@ -47,6 +47,13 @@ enum AgentEvent {
     /// User clicked the on-screen frog character.
     case characterClicked
 
+    /// The frog finished walking to centre and is about to start talking
+    /// for the given action's owner. Fires once per `walkAndTalk` action,
+    /// not on subsequent `askFollowUp` swaps. Useful for skills that want
+    /// to spawn ancillary UI (Pomodoro's rest party + countdown widget)
+    /// at the exact moment the frog arrives.
+    case frogArrivedAtCentre(owner: String)
+
     /// App-wide mode changed (e.g. Pomodoro entering/leaving focus mode).
     case modeChanged(AppMode)
 
