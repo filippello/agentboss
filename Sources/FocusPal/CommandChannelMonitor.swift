@@ -1,11 +1,47 @@
 import Foundation
 
 /// One command sent in by the `/focuspal` slash command.
-/// Schema: `{"command":"<name>", "args":"<rest of $ARGUMENTS>", "ts":<unix>}`.
+///
+/// Two wire formats are accepted, both decoded into the same struct:
+/// 1. New (preferred):  `{"raw":"<verbatim $ARGUMENTS>"}`
+/// 2. Legacy:           `{"command":"<name>","args":"<rest>","ts":<unix>}`
+///
+/// We split on first whitespace from `raw` ourselves on the Swift side —
+/// Claude Code now rejects SKILL.md bash that contains parameter
+/// expansion (`${a%% *}`, `$(...)`, etc.) under "Contains expansion",
+/// so doing the split server-side here keeps the slash command's bash
+/// trivially simple.
 struct RemoteCommand: Codable {
     let command: String
-    let args: String?
-    let ts: Int64?
+    let args: String
+
+    private enum CodingKeys: String, CodingKey {
+        case command, args, raw
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let raw = try c.decodeIfPresent(String.self, forKey: .raw) {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let space = trimmed.firstIndex(where: { $0.isWhitespace }) {
+                self.command = String(trimmed[..<space]).lowercased()
+                self.args = String(trimmed[trimmed.index(after: space)...])
+                    .trimmingCharacters(in: .whitespaces)
+            } else {
+                self.command = trimmed.lowercased()
+                self.args = ""
+            }
+        } else {
+            self.command = (try c.decodeIfPresent(String.self, forKey: .command) ?? "").lowercased()
+            self.args = try c.decodeIfPresent(String.self, forKey: .args) ?? ""
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(command, forKey: .command)
+        try c.encode(args, forKey: .args)
+    }
 }
 
 protocol CommandChannelMonitorDelegate: AnyObject {

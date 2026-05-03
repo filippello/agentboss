@@ -716,8 +716,8 @@ extension AppDelegate: ScreenEdgeNavigatorDelegate {
 
 extension AppDelegate: CommandChannelMonitorDelegate {
     func commandChannelDidReceive(_ command: RemoteCommand) {
-        let name = command.command.lowercased().trimmingCharacters(in: .whitespaces)
-        let args = (command.args ?? "").trimmingCharacters(in: .whitespaces)
+        let name = command.command
+        let args = command.args
 
         // Handle visibility-only commands here since they touch the
         // character window directly. Everything behavioural is dispatched
