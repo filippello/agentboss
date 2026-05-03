@@ -45,7 +45,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Characters bundled with the app. Must match folder names under
     /// `Sources/FocusPal/Resources/Main Characters/`.
-    static let availableCharacters = ["Ninja Frog", "Mask Dude", "Pink Man", "Virtual Guy"]
+    static let bundledCharacters = ["Ninja Frog", "Mask Dude", "Pink Man", "Virtual Guy"]
+
+    /// Characters available right now — bundled set plus anything imported
+    /// to `~/.focuspal/characters/<name>/` via `/focuspal petdex <name>`.
+    static var availableCharacters: [String] {
+        let userDir = "\(NSHomeDirectory())/.focuspal/characters"
+        let custom = (try? FileManager.default.contentsOfDirectory(atPath: userDir))?
+            .filter { name in
+                guard !name.hasPrefix(".") else { return false }
+                let full = "\(userDir)/\(name)"
+                var isDir: ObjCBool = false
+                return FileManager.default.fileExists(atPath: full, isDirectory: &isDir) && isDir.boolValue
+            } ?? []
+        return bundledCharacters + custom.filter { !bundledCharacters.contains($0) }
+    }
+
+    private var commandMonitor: CommandChannelMonitor!
+    private weak var characterSubmenu: NSMenu?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let installer = HookInstaller()
@@ -58,9 +75,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupActionBubbles()
         setupClaudeCodeMonitor()
         setupSessionTracker()
+        setupCommandChannel()
         setupRegistry()
         setupSkills()
         registry.startTicking()
+    }
+
+    private func setupCommandChannel() {
+        commandMonitor = CommandChannelMonitor()
+        commandMonitor.delegate = self
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -183,17 +206,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func buildCharacterSubmenuItem() -> NSMenuItem {
         let characterItem = NSMenuItem(title: "Character", action: nil, keyEquivalent: "")
-        let characterSubmenu = NSMenu()
+        let submenu = NSMenu()
+        characterItem.submenu = submenu
+        characterSubmenu = submenu
+        populateCharacterSubmenu(submenu)
+        return characterItem
+    }
+
+    /// Populate (or repopulate) the character submenu from the current
+    /// `availableCharacters` list. Called on launch and on `charactersChanged`
+    /// after a `/focuspal petdex …` import.
+    private func populateCharacterSubmenu(_ submenu: NSMenu) {
+        submenu.removeAllItems()
         let currentCharacter = ConfigManager.shared.config.characterName ?? "Ninja Frog"
         for name in Self.availableCharacters {
             let item = NSMenuItem(title: name, action: #selector(selectCharacter(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = name
             item.state = (name == currentCharacter) ? .on : .off
-            characterSubmenu.addItem(item)
+            submenu.addItem(item)
         }
-        characterItem.submenu = characterSubmenu
-        return characterItem
+    }
+
+    private func rebuildCharacterSubmenu() {
+        guard let submenu = characterSubmenu else { return }
+        populateCharacterSubmenu(submenu)
     }
 
     @objc private func selectCharacter(_ sender: NSMenuItem) {
@@ -672,5 +709,91 @@ extension AppDelegate: ScreenEdgeNavigatorDelegate {
     }
     func navigatorDidReachEdge() {
         stateMachine.onReachedTarget()
+    }
+}
+
+// MARK: - CommandChannelMonitorDelegate (slash-command driven actions)
+
+extension AppDelegate: CommandChannelMonitorDelegate {
+    func commandChannelDidReceive(_ command: RemoteCommand) {
+        let name = command.command.lowercased().trimmingCharacters(in: .whitespaces)
+        let args = (command.args ?? "").trimmingCharacters(in: .whitespaces)
+
+        // Handle visibility-only commands here since they touch the
+        // character window directly. Everything behavioural is dispatched
+        // through the registry so any skill can handle it.
+        switch name {
+        case "", "toggle":
+            toggleCharacterVisibility()
+            return
+        case "show":
+            if !characterWindow.isVisible { toggleCharacterVisibility() }
+            return
+        case "hide":
+            if characterWindow.isVisible { toggleCharacterVisibility() }
+            return
+        case "petdex":
+            startPetdexImport(name: args)
+            return
+        default:
+            break
+        }
+
+        // Otherwise forward as a skill event.
+        registry?.dispatch(.remoteCommand(name: name, args: args))
+    }
+
+    /// `/focuspal` (no args) → if the frog is currently doing something,
+    /// abort it; otherwise pop a quick "hi" so the user gets visible
+    /// feedback that the slash command worked.
+    private func toggleCharacterVisibility() {
+        if currentAction != nil {
+            dismissCurrentAction()
+        } else {
+            popHello()
+        }
+    }
+
+    private func popHello() {
+        registry?.enqueue(FrogAction(
+            owner: "focuspal-cli",
+            kind: .popAndSay(message: "Yo! Here when you need me.", duration: 3.0),
+            priority: .normal,
+            coalesceKey: "focuspal-hello"
+        ))
+    }
+
+    /// `/focuspal petdex <slug>` — download + slice + install a pet.
+    /// Reports success/error via popAndSay so the user gets immediate
+    /// feedback in the menu bar app.
+    private func startPetdexImport(name: String) {
+        let cleaned = name.trimmingCharacters(in: .whitespaces)
+        guard !cleaned.isEmpty else {
+            popMessage("Usage: /focuspal petdex <pet-slug>", duration: 4)
+            return
+        }
+        popMessage("Importing '\(cleaned)' from petdex…", duration: 3)
+
+        PetdexImporter.importPet(name: cleaned) { [weak self] result in
+            guard let self = self else { return }
+            switch result {
+            case .success(let dir):
+                let last = (dir as NSString).lastPathComponent
+                self.rebuildCharacterSubmenu()
+                self.registry?.dispatch(.charactersChanged)
+                self.popMessage("Imported '\(last)' — pick it from Character menu.", duration: 4)
+            case .failure(let error):
+                self.popMessage("petdex import failed: \(error)", duration: 5)
+            }
+        }
+    }
+
+    private func popMessage(_ text: String, duration: TimeInterval) {
+        registry?.enqueue(FrogAction(
+            owner: "focuspal-cli",
+            kind: .popAndSay(message: text, duration: duration),
+            priority: .normal,
+            coalesceKey: nil
+        ))
     }
 }

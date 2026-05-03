@@ -79,6 +79,20 @@ final class PomodoroSkill: Skill {
             // so the user reads it as a single coordinated moment.
             spawnRestChaosIfNeeded()
 
+        case .remoteCommand(let cmd, _):
+            switch cmd {
+            case "pomodoro":
+                if case .idle = state {
+                    startConversation()
+                } else {
+                    cancelEverything()
+                }
+            case "demo":
+                runRestDemo(restSeconds: 300)
+            default:
+                break
+            }
+
         default:
             break
         }

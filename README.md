@@ -126,6 +126,41 @@ On first launch the app will:
 
 Click the 🐸 menu bar icon → **🎬 Run Demo (solana integration)**. After 5 seconds the frog will hop out with a sample reminder so you can see the full flow without waiting for real events.
 
+### Control FocusPal from Claude Code (`/focuspal`)
+
+FocusPal ships a slash command so you can drive it from any Claude Code session without taking your hands off the keyboard. One-time install:
+
+```bash
+mkdir -p ~/.claude/skills/focuspal
+cp homebrew/skills/focuspal/SKILL.md ~/.claude/skills/focuspal/SKILL.md
+```
+
+Now in any Claude Code session:
+
+| Command | What it does |
+|---|---|
+| `/focuspal` | Toggle the on-screen frog (or dismiss whatever it's doing). |
+| `/focuspal pomodoro` | Start the conversational Pomodoro flow. |
+| `/focuspal demo` | Run the rest-party demo (frog walks to centre, fruits scatter, harvesters clean up). |
+| `/focuspal health` | Toggle hourly health-break reminders. |
+| `/focuspal show` / `/focuspal hide` | Explicit visibility. |
+| `/focuspal petdex <slug>` | Import a pet from [petdex.crafter.run](https://petdex.crafter.run/) (e.g. `/focuspal petdex boba`). |
+
+Under the hood the skill writes one JSON line per invocation to `~/.claude/focuspal/commands.jsonl`. FocusPal polls that file every 0.5s and reacts. To extend with your own subcommands, drop a new case into a `Skill.handle(.remoteCommand(...))` — see `AGENTS.md`.
+
+### Importing a pet from petdex
+
+`/focuspal petdex boba` does the following, all client-side:
+
+1. Validates the slug against `[a-zA-Z0-9_-]{1,32}`.
+2. Fetches `https://petdex.crafter.run/api/manifest` to look up the canonical spritesheet URL (we trust petdex's own published list rather than maintaining a host whitelist).
+3. Downloads the sheet (≤5 MB, content-type `image/webp`, magic bytes `RIFF…WEBP` — abort otherwise).
+4. Slices the standard Codex Pets layout (9 rows × 8 cols, 192×208 frames) into seven horizontal PNGs matching FocusPal's per-animation file structure.
+5. Writes them to `~/.focuspal/characters/<slug>/` (perms 700).
+6. Refreshes the **Character** submenu so you can pick the new pet right away.
+
+The downloaded WebP never touches disk — only PNGs we generate ourselves are written, satisfying the "PNG-only" constraint. Failed imports tear down any partial directory.
+
 ## Usage
 
 ### Menu bar

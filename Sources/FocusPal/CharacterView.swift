@@ -41,9 +41,20 @@ class CharacterView: NSView {
     }
 
     private func loadCharacter(named name: String) {
-        guard let baseDir = Self.resolveResourceDir() else { return }
-        let charDir = "\(baseDir)/\(name)"
-        if let anim = SpriteAnimator(characterDir: charDir, sharedDir: baseDir) {
+        guard let bundleBase = Self.resolveResourceDir() else { return }
+
+        // User-imported pets live under ~/.focuspal/characters/<name>/ —
+        // they have their own per-anim PNGs but rely on the bundle's
+        // shared Appearing / Desappearing sprites. The bundled chars use
+        // both the per-anim and shared PNGs from the same bundle path.
+        let userCharDir = "\(NSHomeDirectory())/.focuspal/characters/\(name)"
+        let charDir: String
+        if FileManager.default.fileExists(atPath: "\(userCharDir)/Idle (32x32).png") {
+            charDir = userCharDir
+        } else {
+            charDir = "\(bundleBase)/\(name)"
+        }
+        if let anim = SpriteAnimator(characterDir: charDir, sharedDir: bundleBase) {
             self.animator = anim
         }
     }

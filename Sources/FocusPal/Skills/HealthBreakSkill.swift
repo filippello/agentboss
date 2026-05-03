@@ -48,6 +48,9 @@ final class HealthBreakSkill: Skill {
         case .modeChanged(let mode):
             suppressed = (mode != .normal)
 
+        case .remoteCommand(let cmd, _) where cmd == "health":
+            toggle()
+
         default:
             break
         }

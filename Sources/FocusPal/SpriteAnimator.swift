@@ -38,15 +38,19 @@ class SpriteAnimator {
             return nil
         }
 
-        idle = Self.makeAnimation(sheet: idleImg, frameSize: 32, duration: 0.08, loops: true)
-        run = Self.makeAnimation(sheet: runImg, frameSize: 32, duration: 0.07, loops: true)
-        jump = Self.makeAnimation(sheet: jumpImg, frameSize: 32, duration: 0.1, loops: false)
-        fall = Self.makeAnimation(sheet: fallImg, frameSize: 32, duration: 0.1, loops: false)
-        doubleJump = Self.makeAnimation(sheet: doubleJumpImg, frameSize: 32, duration: 0.08, loops: false)
-        hit = Self.makeAnimation(sheet: hitImg, frameSize: 32, duration: 0.08, loops: false)
-        wallJump = Self.makeAnimation(sheet: wallJumpImg, frameSize: 32, duration: 0.08, loops: false)
-        appearing = Self.makeAnimation(sheet: appearImg, frameSize: 96, duration: 0.07, loops: false)
-        disappearing = Self.makeAnimation(sheet: disappearImg, frameSize: 96, duration: 0.07, loops: false)
+        // Frame size is detected per-sheet from the PNG height (we assume
+        // square frames laid out horizontally — true for both Pixel
+        // Adventure assets and the petdex slices we generate). This lets
+        // bundled chars stay 32x32 while imported pets render at 96x96.
+        idle = Self.makeAnimation(sheet: idleImg, duration: 0.08, loops: true)
+        run = Self.makeAnimation(sheet: runImg, duration: 0.07, loops: true)
+        jump = Self.makeAnimation(sheet: jumpImg, duration: 0.1, loops: false)
+        fall = Self.makeAnimation(sheet: fallImg, duration: 0.1, loops: false)
+        doubleJump = Self.makeAnimation(sheet: doubleJumpImg, duration: 0.08, loops: false)
+        hit = Self.makeAnimation(sheet: hitImg, duration: 0.08, loops: false)
+        wallJump = Self.makeAnimation(sheet: wallJumpImg, duration: 0.08, loops: false)
+        appearing = Self.makeAnimation(sheet: appearImg, duration: 0.07, loops: false)
+        disappearing = Self.makeAnimation(sheet: disappearImg, duration: 0.07, loops: false)
     }
 
     private static func loadImage(_ dir: String, _ name: String) -> NSImage? {
@@ -54,11 +58,13 @@ class SpriteAnimator {
         return NSImage(contentsOfFile: path)
     }
 
-    private static func makeAnimation(sheet: NSImage, frameSize: CGFloat, duration: TimeInterval, loops: Bool) -> SpriteAnimation {
-        let count = Int(sheet.size.width / frameSize)
+    private static func makeAnimation(sheet: NSImage, duration: TimeInterval, loops: Bool) -> SpriteAnimation {
+        // Square frames laid out horizontally → frame size = sheet height.
+        let frameSize = sheet.size.height
+        let count = max(1, Int((sheet.size.width / max(frameSize, 1)).rounded()))
         return SpriteAnimation(
             sheet: sheet,
-            frameCount: max(1, count),
+            frameCount: count,
             frameWidth: frameSize,
             frameHeight: frameSize,
             frameDuration: duration,

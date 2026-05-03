@@ -57,6 +57,16 @@ enum AgentEvent {
     /// App-wide mode changed (e.g. Pomodoro entering/leaving focus mode).
     case modeChanged(AppMode)
 
+    /// User typed `/focuspal <subcommand>` in Claude Code. Skills filter
+    /// for the names they care about. `name` is normalised lowercase;
+    /// `args` is the raw rest-of-arguments string.
+    case remoteCommand(name: String, args: String)
+
+    /// Available characters changed (e.g. a new pet was imported via
+    /// `/focuspal petdex <name>`). Whoever owns the character submenu
+    /// rebuilds it.
+    case charactersChanged
+
     /// Periodic heartbeat. Skills do polling work here instead of owning timers.
     case tick(Date, cadence: TickCadence)
 }

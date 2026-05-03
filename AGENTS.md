@@ -62,7 +62,10 @@ Events flow into Skills via `Skill.handle(_ event:)`. The registry broadcasts ea
 | `.sessionEnded(SessionInfo)` | A previously-tracked Claude PID died. | `SessionTracker` |
 | `.sessionsUpdated` | The set of active sessions changed somehow. Read `context.sessions` for the current snapshot. | `SessionTracker` |
 | `.characterClicked` | The user clicked the on-screen frog. | `CharacterView` |
+| `.frogArrivedAtCentre(owner)` | The frog has just walked to centre for the named owner's `walkAndTalk`. Fires once per arrival, not on `askFollowUp` swaps. | `CharacterStateMachine` |
 | `.modeChanged(AppMode)` | App-wide mode flipped (`.normal`, `.focus`, `.doNotDisturb`). Pomodoro emits this. | Any Skill via `context.emit(...)` |
+| `.remoteCommand(name, args)` | User typed `/focuspal <name> <args>` in Claude Code. Skill filter the names they care about. | `CommandChannelMonitor` |
+| `.charactersChanged` | The set of characters changed (e.g. a new pet was imported via `/focuspal petdex …`). Owners of the character submenu rebuild it. | `AppDelegate` (after import) |
 | `.tick(Date, cadence: TickCadence)` | Heartbeat. `.fast` ≈ 1s (live UI), `.slow` ≈ 30s (due-date checks, AFK). | `SkillRegistry` |
 
 **Rule**: do polling work in `.tick(.slow)` instead of owning your own `Timer`. The registry's tick fires reliably even while the menu is open (it's added to `RunLoop.main` in `.common` mode).
@@ -215,6 +218,22 @@ If your Skill might enqueue multiple actions about the same thing, use a stable 
 - `"pomodoro-end"` (PomodoroSkill — only one pending end-of-block celebration)
 
 If you don't set a key, every action queues. That's correct for genuinely unique events (e.g. "user just clicked, do this thing now") but wrong for "fire the X reminder when ready".
+
+### How to add a new `/focuspal` subcommand
+
+The slash command lives at `homebrew/skills/focuspal/SKILL.md` (installed by the user to `~/.claude/skills/focuspal/SKILL.md`). It already passes any `$ARGUMENTS` through verbatim to FocusPal as a single JSON line on `~/.claude/focuspal/commands.jsonl`. To handle a new subcommand:
+
+1. **Visibility-only commands** (e.g. `/focuspal hide`) are handled directly in `AppDelegate.commandChannelDidReceive`. Add another case to the `switch name` block there.
+2. **Behavioural commands** (`/focuspal pomodoro`, `/focuspal demo`, etc.) are dispatched to the registry as `AgentEvent.remoteCommand(name, args)`. The relevant skill listens with:
+
+```swift
+case .remoteCommand(let cmd, let args) where cmd == "mything":
+    runMyThing(args)
+```
+
+3. Document the new subcommand in `homebrew/skills/focuspal/SKILL.md` and the README's `/focuspal` table so users know it exists.
+
+No need to touch the slash command markdown itself — it forwards everything.
 
 ### When to react to `.tick(.fast)` vs `.tick(.slow)`
 
