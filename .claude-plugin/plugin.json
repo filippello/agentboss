@@ -1,0 +1,12 @@
+{
+  "name": "focuspal",
+  "description": "Pixel-art frog companion for Claude Code — pomodoro, reminders, health breaks, and importable pets from petdex.",
+  "version": "0.3.0",
+  "author": {
+    "name": "Federico Filippello"
+  },
+  "homepage": "https://github.com/filippello/focuspal",
+  "repository": "https://github.com/filippello/focuspal",
+  "license": "MIT",
+  "keywords": ["companion", "pomodoro", "reminders", "menu-bar", "claude-code"]
+}

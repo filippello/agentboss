@@ -128,12 +128,26 @@ Click the 🐸 menu bar icon → **🎬 Run Demo (solana integration)**. After 5
 
 ### Control FocusPal from Claude Code (`/focuspal`)
 
-FocusPal ships a slash command so you can drive it from any Claude Code session without taking your hands off the keyboard. One-time install:
+FocusPal ships a slash command so you can drive it from any Claude Code session without taking your hands off the keyboard.
+
+**Install via the Claude Code plugin marketplace** (recommended):
+
+```
+/plugin marketplace add filippello/focuspal
+/plugin install focuspal@focuspal
+```
+
+That's it — the slash command is now available everywhere.
+
+<details>
+<summary>Manual install (no plugin marketplace)</summary>
 
 ```bash
 mkdir -p ~/.claude/skills/focuspal
-cp homebrew/skills/focuspal/SKILL.md ~/.claude/skills/focuspal/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/filippello/focuspal/main/skills/focuspal/SKILL.md \
+  -o ~/.claude/skills/focuspal/SKILL.md
 ```
+</details>
 
 Now in any Claude Code session:
 
