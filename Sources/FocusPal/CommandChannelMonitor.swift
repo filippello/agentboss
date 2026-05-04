@@ -101,11 +101,30 @@ final class CommandChannelMonitor {
         guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
 
         let decoder = JSONDecoder()
-        for line in text.components(separatedBy: .newlines) where !line.isEmpty {
-            guard let lineData = line.data(using: .utf8),
-                  let cmd = try? decoder.decode(RemoteCommand.self, from: lineData)
-            else { continue }
-            delegate?.commandChannelDidReceive(cmd)
+        for rawLine in text.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty else { continue }
+
+            // Tolerant parsing: when the SKILL.md preprocessing fires we get
+            // a JSON line. But Claude sometimes invokes /focuspal as a plain
+            // prompt instead of running the skill — in that mode it appends
+            // a bare line like `pomodoro` (or `""`) via its own bash. Accept
+            // both shapes so the frog reacts either way.
+            if line.hasPrefix("{"),
+               let lineData = line.data(using: .utf8),
+               let cmd = try? decoder.decode(RemoteCommand.self, from: lineData) {
+                delegate?.commandChannelDidReceive(cmd)
+            } else {
+                // Strip surrounding quotes (Claude often writes `echo ""`,
+                // which lands as a literal `""` token if the redirection
+                // unquotes it on the way out).
+                let unquoted = line.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+                let synthetic = ["raw": unquoted]
+                if let bytes = try? JSONSerialization.data(withJSONObject: synthetic),
+                   let cmd = try? decoder.decode(RemoteCommand.self, from: bytes) {
+                    delegate?.commandChannelDidReceive(cmd)
+                }
+            }
         }
     }
 
