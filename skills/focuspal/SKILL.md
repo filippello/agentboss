@@ -4,9 +4,9 @@ disable-model-invocation: true
 allowed-tools: Bash(mkdir *), Bash(echo *)
 ---
 
-!`mkdir -p ~/.claude/focuspal`
+!`mkdir -p ~/.focuspal`
 
-!`echo '{"raw":"$ARGUMENTS"}' >> ~/.claude/focuspal/commands.jsonl`
+!`echo '{"raw":"$ARGUMENTS"}' >> ~/.focuspal/commands.jsonl`
 
 FocusPal: $ARGUMENTS
 
@@ -19,10 +19,11 @@ FocusPal: $ARGUMENTS
 - `/focuspal show` / `/focuspal hide` — explicit visibility
 - `/focuspal petdex <name>` — import a pet from https://petdex.crafter.run/ (e.g. `/focuspal petdex boba`)
 
-The slash command writes the raw `$ARGUMENTS` line to `~/.claude/focuspal/commands.jsonl`.
+The slash command writes the raw `$ARGUMENTS` line to `~/.focuspal/commands.jsonl`.
 FocusPal polls that file every 0.5s and parses the command itself (splitting
 the first whitespace into subcommand + args). The bash here is intentionally
 trivial — Claude Code rejects SKILL.md scripts that contain parameter
-expansion (`${...}`, `$(...)`).
+expansion (`${...}`, `$(...)`), and refuses to mkdir under `~/.claude/`
+because it considers that path sensitive.
 
 Make sure FocusPal is running (`brew install --cask filippello/tap/focuspal`).

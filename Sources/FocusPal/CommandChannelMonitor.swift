@@ -48,9 +48,14 @@ protocol CommandChannelMonitorDelegate: AnyObject {
     func commandChannelDidReceive(_ command: RemoteCommand)
 }
 
-/// Watches `~/.claude/focuspal/commands.jsonl` for slash-command-driven
+/// Watches `~/.focuspal/commands.jsonl` for slash-command-driven
 /// requests from Claude Code. Sister of `ClaudeCodeMonitor` — same polling
 /// pattern, different file, different payload type.
+///
+/// Note: earlier releases (≤ v0.3.1) used `~/.claude/focuspal/commands.jsonl`,
+/// but Claude Code refuses to let SKILL.md scripts mkdir under `~/.claude/`
+/// — it flags the path as sensitive. Moving the channel to the app's own
+/// dot-dir makes the SKILL.md preprocessing reliable.
 final class CommandChannelMonitor {
     weak var delegate: CommandChannelMonitorDelegate?
 
@@ -60,8 +65,7 @@ final class CommandChannelMonitor {
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let commandsDir = "\(home)/.claude/focuspal"
-        commandsFile = "\(commandsDir)/commands.jsonl"
+        commandsFile = "\(home)/.focuspal/commands.jsonl"
         setup()
     }
 

@@ -160,7 +160,7 @@ Now in any Claude Code session:
 | `/focuspal show` / `/focuspal hide` | Explicit visibility. |
 | `/focuspal petdex <slug>` | Import a pet from [petdex.crafter.run](https://petdex.crafter.run/) (e.g. `/focuspal petdex boba`). |
 
-Under the hood the skill writes one JSON line per invocation to `~/.claude/focuspal/commands.jsonl`. FocusPal polls that file every 0.5s and reacts. To extend with your own subcommands, drop a new case into a `Skill.handle(.remoteCommand(...))` — see `AGENTS.md`.
+Under the hood the skill writes one JSON line per invocation to `~/.focuspal/commands.jsonl`. FocusPal polls that file every 0.5s and reacts. To extend with your own subcommands, drop a new case into a `Skill.handle(.remoteCommand(...))` — see `AGENTS.md`.
 
 ### Importing a pet from petdex
 

@@ -221,7 +221,7 @@ If you don't set a key, every action queues. That's correct for genuinely unique
 
 ### How to add a new `/focuspal` subcommand
 
-The slash command lives at `homebrew/skills/focuspal/SKILL.md` (installed by the user to `~/.claude/skills/focuspal/SKILL.md`). It already passes any `$ARGUMENTS` through verbatim to FocusPal as a single JSON line on `~/.claude/focuspal/commands.jsonl`. To handle a new subcommand:
+The slash command lives at `skills/focuspal/SKILL.md` (installed by the cask postflight or the plugin marketplace into `~/.claude/skills/focuspal/SKILL.md`). It passes any `$ARGUMENTS` through verbatim to FocusPal as a single JSON line on `~/.focuspal/commands.jsonl`. To handle a new subcommand:
 
 1. **Visibility-only commands** (e.g. `/focuspal hide`) are handled directly in `AppDelegate.commandChannelDidReceive`. Add another case to the `switch name` block there.
 2. **Behavioural commands** (`/focuspal pomodoro`, `/focuspal demo`, etc.) are dispatched to the registry as `AgentEvent.remoteCommand(name, args)`. The relevant skill listens with:
