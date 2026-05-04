@@ -85,6 +85,20 @@ class HookInstaller {
             print("[HookInstaller] Installed \(eventName) hook")
         }
 
+        // Allow SKILL.md scripts to write to ~/.focuspal/ regardless of the
+        // session's working directory. Without this, /focuspal from a session
+        // whose cwd is anywhere outside ~/.focuspal/ fails the working-dir
+        // check (Claude Code blocks mkdir/echo outside cwd by default).
+        var permissions = json["permissions"] as? [String: Any] ?? [:]
+        var additionalDirs = permissions["additionalDirectories"] as? [String] ?? []
+        if !additionalDirs.contains("~/.focuspal") {
+            additionalDirs.append("~/.focuspal")
+            permissions["additionalDirectories"] = additionalDirs
+            json["permissions"] = permissions
+            changed = true
+            print("[HookInstaller] Added ~/.focuspal to permissions.additionalDirectories")
+        }
+
         if !changed {
             print("[HookInstaller] All hooks already installed")
             return true
