@@ -1,7 +1,7 @@
 {
   "name": "focuspal",
   "description": "Pixel-art frog companion for Claude Code — pomodoro, reminders, health breaks, and importable pets from petdex.",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "author": {
     "name": "Federico Filippello"
   },
